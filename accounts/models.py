@@ -1,11 +1,13 @@
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.db import models
 from django.core.validators import RegexValidator, EmailValidator
+from django.contrib.auth.models import BaseUserManager
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 import uuid
 from datetime import timedelta
 import secrets
+import hashlib
 
 
 class ActiveManager(models.Manager):
@@ -15,36 +17,66 @@ class ActiveManager(models.Manager):
 
 class ActiveUserManager(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().filter(is_active=True, status='ACTIVE')
+        return super().get_queryset().filter(is_active=True, status="ACTIVE")
 
+class CustomUserManager(BaseUserManager):
+    def create_user(self, employee_code, email, password=None, **extra_fields):
+        if not employee_code:
+            raise ValueError("Employee code is required")
+        if not email:
+            raise ValueError("Email is required")
 
+        email = self.normalize_email(email)
+
+        username = extra_fields.pop("username", employee_code)
+
+        user = self.model(
+            employee_code=employee_code,
+            email=email,
+            username=username,
+            **extra_fields,
+        )
+        user.set_password(password)
+        user._skip_validation = True
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, employee_code, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_active", True)
+        extra_fields.setdefault("is_verified", True)
+        extra_fields.setdefault("status", "ACTIVE")
+
+        return self.create_user(employee_code, email, password, **extra_fields)
 class Department(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100, unique=True)
     code = models.CharField(max_length=20, unique=True)
     description = models.TextField(blank=True, null=True)
     manager = models.ForeignKey(
-        'accounts.CustomUser',
+        "CustomUser",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='managed_departments',
+        related_name="managed_departments",
     )
     parent_department = models.ForeignKey(
-        'self',
+        "self",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name='sub_departments',
+        related_name="sub_departments",
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
-        'accounts.CustomUser',
+        "CustomUser",
         on_delete=models.SET_NULL,
         null=True,
-        related_name='created_departments',
+        blank=True,
+        related_name="created_departments",
     )
     deleted_at = models.DateTimeField(null=True, blank=True)
 
@@ -52,12 +84,12 @@ class Department(models.Model):
     active = ActiveManager()
 
     class Meta:
-        db_table = 'departments'
-        ordering = ['name']
+        db_table = "departments"
+        ordering = ["name"]
         indexes = [
-            models.Index(fields=['name']),
-            models.Index(fields=['code']),
-            models.Index(fields=['is_active']),
+            models.Index(fields=["name"]),
+            models.Index(fields=["code"]),
+            models.Index(fields=["is_active"]),
         ]
 
     def __str__(self):
@@ -80,17 +112,15 @@ class Department(models.Model):
     def soft_delete(self):
         self.is_active = False
         self.deleted_at = timezone.now()
-        self.save(update_fields=['is_active', 'deleted_at'])
+        self.save(update_fields=["is_active", "deleted_at"])
 
     def get_all_employees(self):
-        from django.db.models import Q
-        
         departments = [self.id]
 
         def get_sub_departments(dept_id):
             sub_depts = Department.objects.filter(
                 parent_department_id=dept_id
-            ).values_list('id', flat=True)
+            ).values_list("id", flat=True)
             for sub_dept in sub_depts:
                 departments.append(sub_dept)
                 get_sub_departments(sub_dept)
@@ -101,14 +131,14 @@ class Department(models.Model):
 
 class Role(models.Model):
     ROLE_TYPES = [
-        ('SUPER_ADMIN', 'Super Administrator'),
-        ('HR_ADMIN', 'HR Administrator'),
-        ('HR_MANAGER', 'HR Manager'),
-        ('DEPARTMENT_MANAGER', 'Department Manager'),
-        ('PAYROLL_MANAGER', 'Payroll Manager'),
-        ('EMPLOYEE', 'Employee'),
-        ('ACCOUNTANT', 'Accountant'),
-        ('AUDITOR', 'Auditor'),
+        ("SUPER_ADMIN", "Super Administrator"),
+        ("HR_ADMIN", "HR Administrator"),
+        ("HR_MANAGER", "HR Manager"),
+        ("DEPARTMENT_MANAGER", "Department Manager"),
+        ("PAYROLL_MANAGER", "Payroll Manager"),
+        ("EMPLOYEE", "Employee"),
+        ("ACCOUNTANT", "Accountant"),
+        ("AUDITOR", "Auditor"),
     ]
 
     id = models.AutoField(primary_key=True)
@@ -116,19 +146,26 @@ class Role(models.Model):
     display_name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     permissions = models.ManyToManyField(
-        Permission, blank=True, related_name='custom_roles'
+        Permission, blank=True, related_name="custom_roles"
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        "CustomUser",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_roles",
+    )
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     objects = models.Manager()
     active = ActiveManager()
 
     class Meta:
-        db_table = 'roles'
-        ordering = ['display_name']
+        db_table = "roles"
+        ordering = ["display_name"]
 
     def __str__(self):
         return self.display_name
@@ -136,11 +173,10 @@ class Role(models.Model):
     def soft_delete(self):
         self.is_active = False
         self.deleted_at = timezone.now()
-        self.save(update_fields=['is_active', 'deleted_at'])
+        self.save(update_fields=["is_active", "deleted_at"])
 
     def get_permission_codenames(self):
-        return list(self.permissions.values_list('codename', flat=True))
-
+        return list(self.permissions.values_list("codename", flat=True))
 
 class CustomUser(AbstractUser):
     GENDER_CHOICES = [
@@ -160,6 +196,8 @@ class CustomUser(AbstractUser):
     employee_code = models.CharField(
         max_length=20,
         unique=True,
+        null=True,
+        blank=True,
         validators=[
             RegexValidator(
                 r'^[A-Z0-9]{3,20}$',
@@ -168,12 +206,14 @@ class CustomUser(AbstractUser):
         ],
     )
 
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
+    first_name = models.CharField(max_length=50, blank=True)
+    last_name = models.CharField(max_length=50, blank=True)
     middle_name = models.CharField(max_length=50, blank=True, null=True)
-    email = models.EmailField(unique=True, validators=[EmailValidator()])
+    email = models.EmailField(unique=True, null=True, blank=True, validators=[EmailValidator()])
     phone_number = models.CharField(
         max_length=15,
+        blank=True,
+        null=True,
         validators=[
             RegexValidator(r'^\+?[1-9]\d{1,14}$', 'Enter a valid phone number')
         ],
@@ -237,7 +277,7 @@ class CustomUser(AbstractUser):
     )
     deleted_at = models.DateTimeField(null=True, blank=True)
 
-    objects = models.Manager()
+    objects = CustomUserManager()
     active = ActiveUserManager()
 
     USERNAME_FIELD = 'employee_code'
@@ -256,9 +296,28 @@ class CustomUser(AbstractUser):
         ]
 
     def __str__(self):
-        return f"{self.employee_code} - {self.get_full_name()}"
+        if self.employee_code:
+            return f"{self.employee_code} - {self.get_full_name()}"
+        return self.username or f"User {self.id}"
 
     def save(self, *args, **kwargs):
+        if (not self.pk and 
+            not self.employee_code and 
+            not self.first_name and 
+            not self.last_name and 
+            not self.email and
+            getattr(self, 'username', None) in [None, '', 'AnonymousUser']):
+            super(AbstractUser, self).save(*args, **kwargs)
+            return
+        
+        if getattr(self, '_skip_validation', False):
+            super(AbstractUser, self).save(*args, **kwargs)
+            return
+        
+        if self.username == 'AnonymousUser':
+            super(AbstractUser, self).save(*args, **kwargs)
+            return
+        
         self.full_clean()
         
         if self.employee_code:
@@ -276,6 +335,15 @@ class CustomUser(AbstractUser):
         super().save(*args, **kwargs)
 
     def clean(self):
+        if (not self.employee_code and 
+            not self.first_name and 
+            not self.last_name and 
+            not self.email):
+            return
+        
+        if self.username == 'AnonymousUser':
+            return
+            
         if self.hire_date and self.hire_date > timezone.now().date():
             raise ValidationError('Hire date cannot be in the future')
 
@@ -322,7 +390,10 @@ class CustomUser(AbstractUser):
 
     def lock_account(self, duration_minutes=None):
         if duration_minutes is None:
-            duration_minutes = int(SystemConfiguration.get_setting('ACCOUNT_LOCK_DURATION', '30'))
+            try:
+                duration_minutes = int(SystemConfiguration.get_setting('ACCOUNT_LOCKOUT_DURATION', '30'))
+            except:
+                duration_minutes = 30
         self.account_locked_until = timezone.now() + timedelta(minutes=duration_minutes)
         self.save(update_fields=['account_locked_until'])
 
@@ -332,7 +403,10 @@ class CustomUser(AbstractUser):
         self.save(update_fields=['account_locked_until', 'failed_login_attempts'])
 
     def increment_failed_login(self):
-        max_attempts = int(SystemConfiguration.get_setting('MAX_LOGIN_ATTEMPTS', '5'))
+        try:
+            max_attempts = int(SystemConfiguration.get_setting('MAX_LOGIN_ATTEMPTS', '5'))
+        except:
+            max_attempts = 5
         self.failed_login_attempts += 1
         if self.failed_login_attempts >= max_attempts:
             self.lock_account()
@@ -351,8 +425,6 @@ class CustomUser(AbstractUser):
         return False
 
     def get_subordinates(self):
-        from django.db.models import Q
-        
         subordinate_ids = []
         
         def collect_subordinates(manager_id):
@@ -386,14 +458,16 @@ class CustomUser(AbstractUser):
 
     def is_password_expired(self, days=None):
         if days is None:
-            days = int(SystemConfiguration.get_setting('PASSWORD_EXPIRY_DAYS', '90'))
+            try:
+                days = int(SystemConfiguration.get_setting('PASSWORD_EXPIRY_DAYS', '90'))
+            except:
+                days = 90
             
         if not self.password_changed_at:
             return True
 
         expiry_date = self.password_changed_at + timedelta(days=days)
         return timezone.now() > expiry_date
-
 
 class UserSession(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -422,7 +496,6 @@ class UserSession(models.Model):
 
     def save(self, *args, **kwargs):
         if hasattr(self, '_session_key') and not self.session_key_hash:
-            import hashlib
             self.session_key_hash = hashlib.sha256(self._session_key.encode()).hexdigest()
         super().save(*args, **kwargs)
 
@@ -431,7 +504,10 @@ class UserSession(models.Model):
             return True
 
         if timeout_minutes is None:
-            timeout_minutes = int(SystemConfiguration.get_setting('SESSION_TIMEOUT', '30'))
+            try:
+                timeout_minutes = int(SystemConfiguration.get_setting('SESSION_TIMEOUT', '30'))
+            except:
+                timeout_minutes = 30
 
         expiry_time = self.last_activity + timedelta(minutes=timeout_minutes)
         return timezone.now() > expiry_time
@@ -440,7 +516,6 @@ class UserSession(models.Model):
         self.is_active = False
         self.logout_time = timezone.now()
         self.save(update_fields=['is_active', 'logout_time'])
-
 
 class PasswordResetToken(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -467,7 +542,10 @@ class PasswordResetToken(models.Model):
         if not self.token:
             self.token = self.generate_token()
         if not self.expires_at:
-            expiry_hours = int(SystemConfiguration.get_setting('PASSWORD_RESET_EXPIRY_HOURS', '24'))
+            try:
+                expiry_hours = int(SystemConfiguration.get_setting('PASSWORD_RESET_EXPIRY_HOURS', '24'))
+            except:
+                expiry_hours = 24
             self.expires_at = timezone.now() + timedelta(hours=expiry_hours)
         super().save(*args, **kwargs)
 
@@ -484,7 +562,6 @@ class PasswordResetToken(models.Model):
         self.is_used = True
         self.used_at = timezone.now()
         self.save(update_fields=['is_used', 'used_at'])
-
 
 class AuditLog(models.Model):
     ACTION_TYPES = [
@@ -544,12 +621,15 @@ class AuditLog(models.Model):
 
 class SystemConfiguration(models.Model):
     key = models.CharField(max_length=100, unique=True, db_index=True)
-    value = models.TextField()
+    value = models.TextField(blank=True)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    updated_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True)
+    updated_by = models.ForeignKey('CustomUser', on_delete=models.SET_NULL, null=True, blank=True)
+
+    objects = models.Manager()
+    active = ActiveManager()
 
     class Meta:
         db_table = 'system_configurations'
@@ -562,10 +642,6 @@ class SystemConfiguration(models.Model):
 
     @classmethod
     def get_setting(cls, key, default=None):
-        """
-        Get a system configuration value by key
-        Returns the default value if key doesn't exist or is inactive
-        """
         try:
             setting = cls.objects.get(key=key.upper(), is_active=True)
             return setting.value
@@ -574,10 +650,6 @@ class SystemConfiguration(models.Model):
 
     @classmethod
     def set_setting(cls, key, value, description=None, user=None):
-        """
-        Set a system configuration value
-        Creates new setting if it doesn't exist, updates if it does
-        """
         key = key.upper()
         setting, created = cls.objects.get_or_create(
             key=key,
@@ -588,7 +660,7 @@ class SystemConfiguration(models.Model):
                 'is_active': True
             }
         )
-        
+
         if not created:
             setting.value = str(value)
             if description:
@@ -596,14 +668,11 @@ class SystemConfiguration(models.Model):
             if user:
                 setting.updated_by = user
             setting.save(update_fields=['value', 'description', 'updated_by', 'updated_at'])
-        
+
         return setting
 
     @classmethod
     def get_int_setting(cls, key, default=0):
-        """
-        Get an integer configuration value
-        """
         try:
             value = cls.get_setting(key, str(default))
             return int(value)
@@ -612,9 +681,6 @@ class SystemConfiguration(models.Model):
 
     @classmethod
     def get_float_setting(cls, key, default=0.0):
-        """
-        Get a float configuration value
-        """
         try:
             value = cls.get_setting(key, str(default))
             return float(value)
@@ -623,60 +689,42 @@ class SystemConfiguration(models.Model):
 
     @classmethod
     def get_bool_setting(cls, key, default=False):
-        """
-        Get a boolean configuration value
-        """
         value = cls.get_setting(key, str(default).lower())
         return value.lower() in ['true', '1', 'yes', 'on', 'enabled']
 
     @classmethod
     def is_enabled(cls, key):
-        """
-        Check if a boolean setting is enabled
-        """
         return cls.get_bool_setting(key, False)
 
     @classmethod
     def get_list_setting(cls, key, default=None, separator=','):
-        """
-        Get a list configuration value (comma-separated by default)
-        """
         if default is None:
             default = []
-        
+
         value = cls.get_setting(key, '')
         if not value:
             return default
-        
+
         return [item.strip() for item in value.split(separator) if item.strip()]
 
     @classmethod
     def get_all_settings(cls, active_only=True):
-        """
-        Get all system configurations as a dictionary
-        """
         queryset = cls.objects.all()
         if active_only:
             queryset = queryset.filter(is_active=True)
-        
+
         return dict(queryset.values_list('key', 'value'))
 
     @classmethod
     def get_settings_by_prefix(cls, prefix, active_only=True):
-        """
-        Get all settings that start with a specific prefix
-        """
         queryset = cls.objects.filter(key__startswith=prefix.upper())
         if active_only:
             queryset = queryset.filter(is_active=True)
-        
+
         return dict(queryset.values_list('key', 'value'))
 
     @classmethod
     def delete_setting(cls, key):
-        """
-        Delete a configuration setting
-        """
         try:
             setting = cls.objects.get(key=key.upper())
             setting.delete()
@@ -686,9 +734,6 @@ class SystemConfiguration(models.Model):
 
     @classmethod
     def deactivate_setting(cls, key, user=None):
-        """
-        Deactivate a configuration setting instead of deleting
-        """
         try:
             setting = cls.objects.get(key=key.upper())
             setting.is_active = False
@@ -701,9 +746,6 @@ class SystemConfiguration(models.Model):
 
     @classmethod
     def activate_setting(cls, key, user=None):
-        """
-        Activate a configuration setting
-        """
         try:
             setting = cls.objects.get(key=key.upper())
             setting.is_active = True
@@ -716,9 +758,6 @@ class SystemConfiguration(models.Model):
 
     @classmethod
     def get_company_info(cls):
-        """
-        Get company information settings
-        """
         return {
             'name': cls.get_setting('COMPANY_NAME', 'HR Payroll System'),
             'address': cls.get_setting('COMPANY_ADDRESS', ''),
@@ -728,9 +767,6 @@ class SystemConfiguration(models.Model):
 
     @classmethod
     def get_security_settings(cls):
-        """
-        Get security-related settings
-        """
         return {
             'password_expiry_days': cls.get_int_setting('PASSWORD_EXPIRY_DAYS', 90),
             'password_expiry_warning_days': cls.get_int_setting('PASSWORD_EXPIRY_WARNING_DAYS', 7),
@@ -743,9 +779,6 @@ class SystemConfiguration(models.Model):
 
     @classmethod
     def get_system_settings(cls):
-        """
-        Get system operation settings
-        """
         return {
             'audit_log_retention_days': cls.get_int_setting('AUDIT_LOG_RETENTION_DAYS', 365),
             'max_upload_size_mb': cls.get_int_setting('MAX_UPLOAD_SIZE_MB', 10),
@@ -756,9 +789,6 @@ class SystemConfiguration(models.Model):
 
     @classmethod
     def get_hr_settings(cls):
-        """
-        Get HR-related settings
-        """
         return {
             'working_hours_per_day': cls.get_float_setting('WORKING_HOURS_PER_DAY', 8.0),
             'working_days_per_week': cls.get_int_setting('WORKING_DAYS_PER_WEEK', 5),
@@ -770,9 +800,6 @@ class SystemConfiguration(models.Model):
 
     @classmethod
     def reset_to_defaults(cls, user=None):
-        """
-        Reset all settings to default values
-        """
         default_settings = [
             ('COMPANY_NAME', 'HR Payroll System', 'Company name displayed in the system'),
             ('COMPANY_ADDRESS', '', 'Company physical address'),
@@ -797,21 +824,14 @@ class SystemConfiguration(models.Model):
             ('EMAIL_NOTIFICATIONS_ENABLED', 'true', 'Enable email notifications'),
             ('SYSTEM_MAINTENANCE_MODE', 'false', 'System maintenance mode flag'),
         ]
-        
+
         for key, value, description in default_settings:
             cls.set_setting(key, value, description, user)
 
     def clean(self):
-        """
-        Validate the configuration setting
-        """
-        from django.core.exceptions import ValidationError
-        
-        # Ensure key is uppercase
         if self.key:
             self.key = self.key.upper()
-        
-        # Validate specific settings
+
         if self.key in ['MAX_LOGIN_ATTEMPTS', 'SESSION_TIMEOUT', 'MAX_CONCURRENT_SESSIONS']:
             try:
                 int_value = int(self.value)
@@ -819,7 +839,7 @@ class SystemConfiguration(models.Model):
                     raise ValidationError(f'{self.key} must be a positive integer')
             except ValueError:
                 raise ValidationError(f'{self.key} must be a valid integer')
-        
+
         if self.key in ['OVERTIME_RATE', 'LATE_PENALTY_RATE']:
             try:
                 float_value = float(self.value)

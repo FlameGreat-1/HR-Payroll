@@ -11,9 +11,8 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.db import transaction
 
-from .models import Department, Role, UserSession, PasswordResetToken, AuditLog, SystemConfiguration
+from .models import CustomUser, Department, Role, UserSession, PasswordResetToken, AuditLog, SystemConfiguration
 from .forms import EmployeeRegistrationForm, EmployeeUpdateForm
-from .utils import generate_secure_password, SystemUtilities
 
 User = get_user_model()
 
@@ -35,11 +34,11 @@ class BaseAdminMixin:
             self.message_user(request, f"Action failed: {str(e)}", level=messages.ERROR)
 
 
-@admin.register(User)
+@admin.register(CustomUser)
 class CustomUserAdmin(BaseAdminMixin, BaseUserAdmin):
     add_form = EmployeeRegistrationForm
     form = EmployeeUpdateForm
-    model = User
+    model = CustomUser
     
     list_display = [
         'employee_code', 'get_full_name', 'email', 'department', 'role',
@@ -294,7 +293,6 @@ class RoleAdmin(BaseAdminMixin, admin.ModelAdmin):
         self.safe_bulk_action(request, queryset, action, '{count} roles deactivated successfully.')
     deactivate_roles.short_description = 'Deactivate selected roles'
 
-
 @admin.register(UserSession)
 class UserSessionAdmin(BaseAdminMixin, admin.ModelAdmin):
     list_display = [
@@ -363,6 +361,8 @@ class UserSessionAdmin(BaseAdminMixin, admin.ModelAdmin):
         self.safe_bulk_action(request, queryset, action, '{count} sessions terminated successfully.')
     terminate_sessions.short_description = 'Terminate selected sessions'
 
+
+@admin.register(PasswordResetToken)
 class PasswordResetTokenAdmin(BaseAdminMixin, admin.ModelAdmin):
     list_display = [
         'user', 'get_employee_code', 'token_preview', 'created_at',
@@ -434,6 +434,7 @@ class PasswordResetTokenAdmin(BaseAdminMixin, admin.ModelAdmin):
     delete_expired_tokens.short_description = 'Delete expired tokens'
 
 
+@admin.register(AuditLog)
 class AuditLogAdmin(BaseAdminMixin, admin.ModelAdmin):
     list_display = [
         'timestamp', 'user', 'get_employee_code', 'action',
@@ -496,11 +497,6 @@ class AuditLogAdmin(BaseAdminMixin, admin.ModelAdmin):
     
     def export_selected_logs(self, request, queryset):
         try:
-            report_data = SystemUtilities.generate_audit_report(
-                start_date=timezone.now() - timezone.timedelta(days=30),
-                end_date=timezone.now(),
-                user_filter=None
-            )
             self.message_user(request, f'{queryset.count()} logs prepared for export.')
         except Exception as e:
             self.message_user(request, f'Export failed: {str(e)}', level=messages.ERROR)
@@ -517,6 +513,7 @@ class AuditLogAdmin(BaseAdminMixin, admin.ModelAdmin):
     delete_old_logs.short_description = 'Delete logs older than 1 year'
 
 
+@admin.register(SystemConfiguration)
 class SystemConfigurationAdmin(BaseAdminMixin, admin.ModelAdmin):
     list_display = [
         'key', 'value_preview', 'description_preview',
@@ -564,118 +561,19 @@ class SystemConfigurationAdmin(BaseAdminMixin, admin.ModelAdmin):
     def activate_configs(self, request, queryset):
         def action(qs):
             return qs.update(is_active=True, updated_by=request.user)
-        self.safe_bulk_action(request, queryset, action, '{count} configurations activated.')
+        self.safe_bulk_action(request, queryset, action, '{count} configurations activated successfully.')
     activate_configs.short_description = 'Activate selected configurations'
     
     def deactivate_configs(self, request, queryset):
         def action(qs):
             return qs.update(is_active=False, updated_by=request.user)
-        self.safe_bulk_action(request, queryset, action, '{count} configurations deactivated.')
+        self.safe_bulk_action(request, queryset, action, '{count} configurations deactivated successfully.')
     deactivate_configs.short_description = 'Deactivate selected configurations'
     
     def reset_to_defaults(self, request, queryset):
-        default_values = {
-            'COMPANY_NAME': 'HR Payroll System',
-            'WORKING_HOURS_PER_DAY': '8.00',
-            'WORKING_DAYS_PER_WEEK': '5',
-            'PASSWORD_EXPIRY_DAYS': '90',
-            'MAX_LOGIN_ATTEMPTS': '5',
-            'SESSION_TIMEOUT': '30'
-        }
-        
-        def action(qs):
-            updated = 0
-            for config in qs:
-                if config.key in default_values:
-                    config.value = default_values[config.key]
-                    config.updated_by = request.user
-                    config.save()
-                    updated += 1
-            return updated
-        
-        self.safe_bulk_action(request, queryset, action, '{count} configurations reset to defaults.')
-    reset_to_defaults.short_description = 'Reset selected to default values'
-
-
-class AdminLogEntryAdmin(admin.ModelAdmin):
-    list_display = [
-        'action_time', 'user', 'content_type', 'object_repr',
-        'action_flag', 'change_message'
-    ]
-    
-    list_filter = ['action_flag', 'action_time', 'content_type']
-    
-    search_fields = ['object_repr', 'change_message', 'user__username']
-    
-    ordering = ['-action_time']
-    
-    readonly_fields = [
-        'action_time', 'user', 'content_type', 'object_id',
-        'object_repr', 'action_flag', 'change_message'
-    ]
-    
-    def has_add_permission(self, request):
-        return False
-    
-    def has_change_permission(self, request, obj=None):
-        return False
-    
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser
-
-
-admin.site.register(PasswordResetToken, PasswordResetTokenAdmin)
-admin.site.register(AuditLog, AuditLogAdmin)
-admin.site.register(SystemConfiguration, SystemConfigurationAdmin)
-admin.site.register(LogEntry, AdminLogEntryAdmin)
-
-admin.site.site_header = 'HR Payroll System Administration'
-admin.site.site_title = 'HR Admin'
-admin.site.index_title = 'HR Payroll System Administration'
-admin.site.empty_value_display = '(None)'
-
-
-@staff_member_required
-def admin_dashboard_view(request):
-    try:
-        stats = SystemUtilities.get_system_statistics()
-        
-        context = {
-            'total_users': stats.get('total_users', 0),
-            'active_users': stats.get('active_users', 0),
-            'total_departments': Department.objects.count(),
-            'total_roles': Role.objects.count(),
-            'active_sessions': stats.get('active_sessions', 0),
-            'recent_activities': AuditLog.objects.select_related('user').order_by('-timestamp')[:10],
-            'failed_logins_today': AuditLog.objects.filter(
-                action='LOGIN_FAILED',
-                timestamp__gte=timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            ).count(),
-            'password_expiry_warnings': stats.get('password_expiry_warnings', 0)
-        }
-        
-        return render(request, 'admin/dashboard.html', context)
-    
-    except Exception as e:
-        context = {
-            'error': f'Dashboard data unavailable: {str(e)}',
-            'total_users': 0,
-            'active_users': 0,
-            'total_departments': 0,
-            'total_roles': 0,
-            'active_sessions': 0,
-            'recent_activities': [],
-            'failed_logins_today': 0,
-            'password_expiry_warnings': 0
-        }
-        return render(request, 'admin/dashboard.html', context)
-
-
-def get_admin_urls():
-    return [
-        path('dashboard/', admin_dashboard_view, name='admin_dashboard'),
-    ]
-
-
-original_get_urls = admin.site.get_urls
-admin.site.get_urls = lambda: get_admin_urls() + original_get_urls()
+        try:
+            SystemConfiguration.reset_to_defaults(user=request.user)
+            self.message_user(request, 'System configurations reset to defaults successfully.')
+        except Exception as e:
+            self.message_user(request, f'Reset failed: {str(e)}', level=messages.ERROR)
+    reset_to_defaults.short_description = 'Reset all configurations to defaults'

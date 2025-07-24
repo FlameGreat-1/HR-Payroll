@@ -9,7 +9,7 @@ from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.core.validators import RegexValidator, EmailValidator
-from .models import Department, Role, AuditLog, SystemConfiguration
+from .models import Department, Role, AuditLog, SystemConfiguration, CustomUser
 from .utils import validate_password_strength
 import re
 from datetime import datetime, timedelta
@@ -123,7 +123,7 @@ class EmployeeRegistrationForm(forms.ModelForm):
     )
 
     class Meta:
-        model = User
+        model = CustomUser
         fields = [
             "employee_code",
             "first_name",
@@ -215,8 +215,12 @@ class EmployeeRegistrationForm(forms.ModelForm):
                 - dob.year
                 - ((today.month, today.day) < (dob.month, dob.day))
             )
-            min_age = int(SystemConfiguration.get_setting("MIN_EMPLOYEE_AGE", "18"))
-            max_age = int(SystemConfiguration.get_setting("MAX_EMPLOYEE_AGE", "65"))
+            try:
+                min_age = int(SystemConfiguration.get_setting("MIN_EMPLOYEE_AGE", "18"))
+                max_age = int(SystemConfiguration.get_setting("MAX_EMPLOYEE_AGE", "65"))
+            except:
+                min_age = 18
+                max_age = 65
 
             if age < min_age:
                 raise ValidationError(f"Employee must be at least {min_age} years old.")
@@ -263,10 +267,9 @@ class EmployeeRegistrationForm(forms.ModelForm):
             user.save()
         return user
 
-
 class EmployeeUpdateForm(forms.ModelForm):
     class Meta:
-        model = User
+        model = CustomUser
         fields = [
             "first_name",
             "last_name",
@@ -517,7 +520,7 @@ class RoleForm(forms.ModelForm):
 
 class ProfileUpdateForm(forms.ModelForm):
     class Meta:
-        model = User
+        model = CustomUser
         fields = [
             "first_name",
             "last_name",
@@ -546,9 +549,7 @@ class ProfileUpdateForm(forms.ModelForm):
             "country": forms.TextInput(attrs={"class": "form-control"}),
             "emergency_contact_name": forms.TextInput(attrs={"class": "form-control"}),
             "emergency_contact_phone": forms.TextInput(attrs={"class": "form-control"}),
-            "emergency_contact_relationship": forms.TextInput(
-                attrs={"class": "form-control"}
-            ),
+            "emergency_contact_relationship": forms.TextInput(attrs={"class": "form-control"}),
         }
 
     def clean_phone_number(self):
@@ -561,34 +562,38 @@ class ProfileUpdateForm(forms.ModelForm):
 
 
 class BulkEmployeeUploadForm(forms.Form):
-    excel_file = forms.FileField(
-        label="Excel File",
-        widget=forms.FileInput(attrs={"class": "form-control", "accept": ".xlsx,.xls"}),
-        help_text="Upload Excel file with employee data",
+    file = forms.FileField(
+        label="Upload Employee File",
+        widget=forms.FileInput(
+            attrs={"class": "form-control", "accept": ".xlsx,.xls,.csv"}
+        ),
+        help_text="Upload Excel or CSV file with employee data",
     )
 
-    def clean_excel_file(self):
-        file = self.cleaned_data.get("excel_file")
+    def clean_file(self):
+        file = self.cleaned_data.get("file")
         if file:
-            if not file.name.endswith((".xlsx", ".xls")):
-                raise ValidationError("Only Excel files (.xlsx, .xls) are allowed.")
-
-            max_size = int(SystemConfiguration.get_setting("MAX_UPLOAD_SIZE_MB", "5"))
-            if file.size > max_size * 1024 * 1024:
-                raise ValidationError(f"File size must be less than {max_size}MB.")
-
+            if not file.name.endswith((".xlsx", ".xls", ".csv")):
+                raise ValidationError(
+                    "Only Excel (.xlsx, .xls) and CSV files are allowed."
+                )
+            if file.size > 5 * 1024 * 1024:  # 5MB limit
+                raise ValidationError("File size cannot exceed 5MB.")
         return file
 
 
 class UserSearchForm(forms.Form):
     search_query = forms.CharField(
+        max_length=100,
         required=False,
         widget=forms.TextInput(
             attrs={
                 "class": "form-control",
-                "placeholder": "Search by name, employee code, or email",
+                "placeholder": "Search employees...",
+                "autocomplete": "off",
             }
         ),
+        label="Search",
     )
     department = forms.ModelChoiceField(
         queryset=Department.active.all(),
@@ -603,70 +608,71 @@ class UserSearchForm(forms.Form):
         widget=forms.Select(attrs={"class": "form-select"}),
     )
     status = forms.ChoiceField(
-        choices=[("", "All Status")] + User.STATUS_CHOICES,
+        choices=[("", "All Status")] + CustomUser.STATUS_CHOICES,
         required=False,
         widget=forms.Select(attrs={"class": "form-select"}),
     )
 
 
-class SystemConfigurationForm(forms.Form):
-    company_name = forms.CharField(
-        max_length=200,
-        widget=forms.TextInput(attrs={"class": "form-control"}),
-        initial=lambda: SystemConfiguration.get_setting("COMPANY_NAME", "HR System"),
-    )
-    company_address = forms.CharField(
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
-        initial=lambda: SystemConfiguration.get_setting("COMPANY_ADDRESS", ""),
-    )
-    company_phone = forms.CharField(
-        max_length=20,
-        widget=forms.TextInput(attrs={"class": "form-control"}),
-        initial=lambda: SystemConfiguration.get_setting("COMPANY_PHONE", ""),
-    )
-    company_email = forms.EmailField(
-        widget=forms.EmailInput(attrs={"class": "form-control"}),
-        initial=lambda: SystemConfiguration.get_setting("COMPANY_EMAIL", ""),
-    )
-    working_hours_per_day = forms.DecimalField(
-        max_digits=4,
-        decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
-        initial=lambda: SystemConfiguration.get_setting(
-            "WORKING_HOURS_PER_DAY", "8.00"
+class BulkEmployeeUploadForm(forms.Form):
+    file = forms.FileField(
+        label="Upload Employee File",
+        widget=forms.FileInput(
+            attrs={"class": "form-control", "accept": ".xlsx,.xls,.csv"}
         ),
-    )
-    working_days_per_week = forms.IntegerField(
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
-        initial=lambda: SystemConfiguration.get_setting("WORKING_DAYS_PER_WEEK", "5"),
-    )
-    overtime_rate = forms.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
-        initial=lambda: SystemConfiguration.get_setting("OVERTIME_RATE", "1.50"),
-    )
-    late_penalty_rate = forms.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
-        initial=lambda: SystemConfiguration.get_setting("LATE_PENALTY_RATE", "0.10"),
-    )
-    password_expiry_days = forms.IntegerField(
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
-        initial=lambda: SystemConfiguration.get_setting("PASSWORD_EXPIRY_DAYS", "90"),
-    )
-    max_login_attempts = forms.IntegerField(
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
-        initial=lambda: SystemConfiguration.get_setting("MAX_LOGIN_ATTEMPTS", "5"),
-    )
-    session_timeout_minutes = forms.IntegerField(
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
-        initial=lambda: SystemConfiguration.get_setting("SESSION_TIMEOUT", "30"),
+        help_text="Upload Excel or CSV file with employee data",
     )
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field_name, field in self.fields.items():
-            if hasattr(field, "initial") and callable(field.initial):
-                field.initial = field.initial()
+    def clean_file(self):
+        file = self.cleaned_data.get("file")
+        if file:
+            if not file.name.endswith((".xlsx", ".xls", ".csv")):
+                raise ValidationError(
+                    "Only Excel (.xlsx, .xls) and CSV files are allowed."
+                )
+            if file.size > 5 * 1024 * 1024:  # 5MB limit
+                raise ValidationError("File size cannot exceed 5MB.")
+        return file
+
+
+class AdvancedUserFilterForm(forms.Form):
+    hire_date_from = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        label="Hired From",
+    )
+    hire_date_to = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        label="Hired To",
+    )
+    is_active = forms.ChoiceField(
+        choices=[("", "All"), ("true", "Active"), ("false", "Inactive")],
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        label="Account Status",
+    )
+    is_verified = forms.ChoiceField(
+        choices=[("", "All"), ("true", "Verified"), ("false", "Unverified")],
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        label="Verification Status",
+    )
+
+
+class SystemConfigurationForm(forms.ModelForm):
+    class Meta:
+        model = SystemConfiguration
+        fields = ["key", "value", "description", "is_active"]
+        widgets = {
+            "key": forms.TextInput(attrs={"class": "form-control"}),
+            "value": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def clean_key(self):
+        key = self.cleaned_data.get("key")
+        if key:
+            key = key.upper().replace(" ", "_")
+        return key

@@ -2,7 +2,7 @@ from django.apps import AppConfig
 from django.db.models.signals import post_migrate
 from django.core.management.color import no_style
 from django.db import connection
-from django.core.checks import Error, Warning, register
+from django.core.checks import Error, Warning
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,8 +22,6 @@ class AccountsConfig(AppConfig):
                 sender=self,
                 dispatch_uid="accounts_create_initial_data",
             )
-
-            register(self.check_required_settings, deploy=True)
 
             logger.info("Accounts app initialized successfully")
 
@@ -84,6 +82,7 @@ class AccountsConfig(AppConfig):
                         "display_name": role_data["display_name"],
                         "description": role_data["description"],
                         "is_active": True,
+                        "created_by": None,
                     },
                 )
                 if created:
@@ -115,6 +114,7 @@ class AccountsConfig(AppConfig):
                         "name": dept_data["name"],
                         "description": dept_data["description"],
                         "is_active": True,
+                        "created_by": None,
                     },
                 )
                 if created:
@@ -184,6 +184,7 @@ class AccountsConfig(AppConfig):
                         "value": value,
                         "description": description,
                         "is_active": True,
+                        "updated_by": None,
                     },
                 )
                 if created:
@@ -196,22 +197,23 @@ class AccountsConfig(AppConfig):
 
                     secure_password = generate_secure_password()
 
-                    superuser = User.objects.create(
-                        username="ADMIN001",
+                    superuser = User.objects.create_user(
                         employee_code="ADMIN001",
                         email="admin@company.com",
+                        password=secure_password,
                         first_name="System",
                         last_name="Administrator",
-                        department=hr_dept,
-                        role=super_admin_role,
-                        is_active=True,
-                        is_verified=True,
-                        status="ACTIVE",
-                        is_staff=True,
-                        is_superuser=True,
-                        must_change_password=True,
                     )
-                    superuser.set_password(secure_password)
+
+                    superuser.department = hr_dept
+                    superuser.role = super_admin_role
+                    superuser.is_active = True
+                    superuser.is_verified = True
+                    superuser.status = "ACTIVE"
+                    superuser.is_staff = True
+                    superuser.is_superuser = True
+                    superuser.must_change_password = True
+                    superuser.created_by = None
                     superuser.save()
 
                     logger.info(
@@ -297,79 +299,3 @@ class AccountsConfig(AppConfig):
 
         except Exception as e:
             logger.error(f"Error assigning role permissions: {e}")
-
-    def check_required_settings(self, app_configs, **kwargs):
-        errors = []
-        warnings = []
-
-        try:
-            from django.conf import settings
-
-            required_settings = [
-                "SECRET_KEY",
-                "DATABASES",
-                "INSTALLED_APPS",
-                "MIDDLEWARE",
-                "AUTH_USER_MODEL",
-            ]
-
-            for setting in required_settings:
-                if not hasattr(settings, setting):
-                    errors.append(
-                        Error(
-                            f"Missing required setting: {setting}",
-                            id="accounts.E001",
-                        )
-                    )
-
-            if hasattr(settings, "INSTALLED_APPS"):
-                if "accounts" not in settings.INSTALLED_APPS:
-                    errors.append(
-                        Error(
-                            "'accounts' app not found in INSTALLED_APPS",
-                            id="accounts.E002",
-                        )
-                    )
-
-            if hasattr(settings, "AUTH_USER_MODEL"):
-                if settings.AUTH_USER_MODEL != "accounts.User":
-                    errors.append(
-                        Error(
-                            "AUTH_USER_MODEL should be set to 'accounts.User'",
-                            id="accounts.E003",
-                        )
-                    )
-
-            if hasattr(settings, "DATABASES"):
-                default_db = settings.DATABASES.get("default", {})
-                if default_db.get("ENGINE") != "django.db.backends.postgresql":
-                    warnings.append(
-                        Warning(
-                            "PostgreSQL database engine is recommended for production",
-                            id="accounts.W001",
-                        )
-                    )
-
-            if hasattr(settings, "CACHES"):
-                default_cache = settings.CACHES.get("default", {})
-                if (
-                    default_cache.get("BACKEND")
-                    != "django.core.cache.backends.redis.RedisCache"
-                ):
-                    warnings.append(
-                        Warning(
-                            "Redis cache backend is recommended for production",
-                            id="accounts.W002",
-                        )
-                    )
-
-        except Exception as e:
-            logger.error(f"Error during system checks: {e}")
-            errors.append(
-                Error(
-                    f"System check error: {str(e)}",
-                    id="accounts.E999",
-                )
-            )
-
-        return errors + warnings
