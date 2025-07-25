@@ -1,0 +1,484 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Login - HR Payroll System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        min-height: 100vh;
+        background: var(--page-bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+    }
+
+    .login-card {
+        background: var(--text-white);
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        max-width: 900px;
+        width: 100%;
+        display: flex;
+        min-height: 600px;
+    }
+
+    .login-left {
+        background: var(--primary-gradient);
+        flex: 1;
+        padding: 3rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .login-left::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+        animation: float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-20px) rotate(180deg); }
+    }
+
+    .login-logo {
+        font-size: 4rem;
+        color: var(--text-white);
+        margin-bottom: 1.5rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .login-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--text-white);
+        margin-bottom: 1rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .login-subtitle {
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        position: relative;
+        z-index: 2;
+    }
+
+    .login-right {
+        flex: 1;
+        padding: 3rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .login-form-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+        text-align: center;
+    }
+
+    .login-form-subtitle {
+        color: #6c757d;
+        text-align: center;
+        margin-bottom: 2.5rem;
+        font-size: 1rem;
+    }
+
+    .form-floating {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-floating .form-control {
+        height: 60px;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        background-color: #f8f9fa;
+    }
+
+    .form-floating .form-control:focus {
+        border-color: var(--primary-start);
+        box-shadow: 0 0 0 0.25rem rgba(61, 90, 254, 0.15);
+        background-color: var(--text-white);
+    }
+
+    .form-floating label {
+        color: #6c757d;
+        font-weight: 500;
+        padding-left: 1rem;
+    }
+
+    .form-floating .form-control:focus ~ label,
+    .form-floating .form-control:not(:placeholder-shown) ~ label {
+        color: var(--primary-start);
+        transform: scale(0.85) translateY(-0.5rem) translateX(0.15rem);
+    }
+
+    .password-toggle {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        z-index: 10;
+        padding: 0.5rem;
+        border-radius: 4px;
+        transition: color 0.3s ease;
+    }
+
+    .password-toggle:hover {
+        color: var(--primary-start);
+    }
+
+    .remember-forgot {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .form-check {
+        display: flex;
+        align-items: center;
+    }
+
+    .form-check-input {
+        width: 1.2rem;
+        height: 1.2rem;
+        margin-right: 0.5rem;
+        border: 2px solid #dee2e6;
+        border-radius: 4px;
+    }
+
+    .form-check-input:checked {
+        background-color: var(--primary-start);
+        border-color: var(--primary-start);
+    }
+
+    .form-check-label {
+        font-weight: 500;
+        color: #495057;
+        cursor: pointer;
+    }
+
+    .forgot-password {
+        color: var(--primary-start);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+    .forgot-password:hover {
+        color: var(--primary-end);
+        text-decoration: underline;
+    }
+
+    .login-btn {
+        background: var(--primary-gradient);
+        border: none;
+        color: var(--text-white);
+        font-weight: 700;
+        font-size: 1.1rem;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        width: 100%;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-glow);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .login-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .login-btn:hover::before {
+        left: 100%;
+    }
+
+    .login-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(213, 0, 249, 0.4);
+    }
+
+    .login-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .error-message {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        border-left: 4px solid #dc3545;
+        margin-bottom: 1.5rem;
+        font-weight: 500;
+    }
+
+    .error-message i {
+        margin-right: 0.5rem;
+    }
+
+    .loading-spinner {
+        display: none;
+        margin-right: 0.5rem;
+    }
+
+    .login-btn.loading .loading-spinner {
+        display: inline-block;
+    }
+
+    .login-btn.loading .btn-text {
+        opacity: 0.7;
+    }
+
+    @media (max-width: 768px) {
+        .login-card {
+            flex-direction: column;
+            max-width: 500px;
+            min-height: auto;
+        }
+
+        .login-left {
+            padding: 2rem;
+            min-height: 200px;
+        }
+
+        .login-logo {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .login-title {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-subtitle {
+            font-size: 1rem;
+        }
+
+        .login-right {
+            padding: 2rem;
+        }
+
+        .login-form-title {
+            font-size: 1.5rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .login-container {
+            padding: 1rem;
+        }
+
+        .login-left {
+            padding: 1.5rem;
+        }
+
+        .login-right {
+            padding: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-left">
+            <div class="login-logo">
+                <i class="bi bi-building"></i>
+            </div>
+            <h1 class="login-title">HR Payroll System</h1>
+            <p class="login-subtitle">
+                Streamline your workforce management with our comprehensive HR and payroll solution. 
+                Manage employees, track attendance, process payroll, and generate reports all in one place.
+            </p>
+        </div>
+
+        <div class="login-right">
+            <h2 class="login-form-title">Welcome Back</h2>
+            <p class="login-form-subtitle">Please sign in to your account</p>
+
+            {% if form.non_field_errors %}
+                <div class="error-message">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <form method="post" id="loginForm" novalidate>
+                {% csrf_token %}
+                
+                <div class="form-floating">
+                    {{ form.username }}
+                    <label for="{{ form.username.id_for_label }}">Employee Code</label>
+                    {% if form.username.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.username.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="form-floating position-relative">
+                    {{ form.password }}
+                    <label for="{{ form.password.id_for_label }}">Password</label>
+                    <button type="button" class="password-toggle" id="passwordToggle">
+                        <i class="bi bi-eye" id="passwordIcon"></i>
+                    </button>
+                    {% if form.password.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.password.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="remember-forgot">
+                    <div class="form-check">
+                        {{ form.remember_me }}
+                        <label class="form-check-label" for="{{ form.remember_me.id_for_label }}">
+                            Remember me
+                        </label>
+                    </div>
+                    <a href="{% url 'accounts:password_reset' %}" class="forgot-password">
+                        Forgot Password?
+                    </a>
+                </div>
+
+                <button type="submit" class="login-btn" id="loginBtn">
+                    <div class="spinner-border spinner-border-sm loading-spinner" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="btn-text">Sign In</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loginForm = document.getElementById('loginForm');
+    const loginBtn = document.getElementById('loginBtn');
+    const passwordToggle = document.getElementById('passwordToggle');
+    const passwordField = document.getElementById('{{ form.password.id_for_label }}');
+    const passwordIcon = document.getElementById('passwordIcon');
+    const usernameField = document.getElementById('{{ form.username.id_for_label }}');
+
+    if (passwordToggle && passwordField) {
+        passwordToggle.addEventListener('click', function() {
+            const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordField.setAttribute('type', type);
+            
+            if (type === 'text') {
+                passwordIcon.classList.remove('bi-eye');
+                passwordIcon.classList.add('bi-eye-slash');
+            } else {
+                passwordIcon.classList.remove('bi-eye-slash');
+                passwordIcon.classList.add('bi-eye');
+            }
+        });
+    }
+
+    if (usernameField) {
+        usernameField.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+    }
+
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            const username = usernameField.value.trim();
+            const password = passwordField.value.trim();
+
+            if (!username || !password) {
+                e.preventDefault();
+                
+                if (!username) {
+                    usernameField.classList.add('is-invalid');
+                } else {
+                    usernameField.classList.remove('is-invalid');
+                }
+
+                if (!password) {
+                    passwordField.classList.add('is-invalid');
+                } else {
+                    passwordField.classList.remove('is-invalid');
+                }
+
+                return false;
+            }
+
+            loginBtn.classList.add('loading');
+            loginBtn.disabled = true;
+
+            setTimeout(function() {
+                if (loginBtn.classList.contains('loading')) {
+                    loginBtn.classList.remove('loading');
+                    loginBtn.disabled = false;
+                }
+            }, 10000);
+        });
+    }
+
+    const formControls = document.querySelectorAll('.form-control');
+    formControls.forEach(function(control) {
+        control.addEventListener('focus', function() {
+            this.classList.remove('is-invalid');
+        });
+
+        control.addEventListener('input', function() {
+            if (this.value.trim()) {
+                this.classList.remove('is-invalid');
+            }
+        });
+    });
+
+    if (usernameField && usernameField.value === '') {
+        usernameField.focus();
+    }
+});
+</script>
+{% endblock %}

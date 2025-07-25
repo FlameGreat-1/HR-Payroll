@@ -1,0 +1,798 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - HR Payroll System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-header {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        border-left: 5px solid var(--primary-start);
+    }
+
+    .welcome-text {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .welcome-subtitle {
+        color: #6c757d;
+        font-size: 1.1rem;
+        margin-bottom: 0;
+    }
+
+    .stats-card {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 1.8rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        border: none;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: var(--primary-gradient);
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .stats-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        color: var(--text-white);
+        margin-bottom: 1rem;
+    }
+
+    .stats-icon.employees {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .stats-icon.departments {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .stats-icon.attendance {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .stats-icon.payroll {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+        line-height: 1;
+    }
+
+    .stats-label {
+        color: #6c757d;
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .stats-change {
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+    }
+
+    .stats-change.positive {
+        color: #28a745;
+    }
+
+    .stats-change.negative {
+        color: #dc3545;
+    }
+
+    .stats-change i {
+        margin-right: 0.25rem;
+    }
+
+    .quick-actions {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 1.8rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .section-title i {
+        margin-right: 0.75rem;
+        color: var(--primary-start);
+    }
+
+    .action-btn {
+        background: var(--text-white);
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 1.2rem;
+        text-decoration: none;
+        color: #333;
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        height: 100%;
+        min-height: 140px;
+        justify-content: center;
+    }
+
+    .action-btn:hover {
+        border-color: var(--primary-start);
+        color: var(--primary-start);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(61, 90, 254, 0.15);
+    }
+
+    .action-btn i {
+        font-size: 2.2rem;
+        margin-bottom: 0.75rem;
+        color: var(--primary-start);
+    }
+
+    .action-btn-text {
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .recent-activities {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 1.8rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        margin-bottom: 2rem;
+    }
+
+    .activity-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem 0;
+        border-bottom: 1px solid #f8f9fa;
+        transition: all 0.3s ease;
+    }
+
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+
+    .activity-item:hover {
+        background-color: rgba(61, 90, 254, 0.05);
+        border-radius: 8px;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        font-size: 1.1rem;
+        color: var(--text-white);
+    }
+
+    .activity-icon.login {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .activity-icon.create {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .activity-icon.update {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .activity-icon.delete {
+        background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+    }
+
+    .activity-content {
+        flex: 1;
+    }
+
+    .activity-text {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+        font-size: 0.95rem;
+    }
+
+    .activity-time {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+
+    .chart-container {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 1.8rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        margin-bottom: 2rem;
+        height: 400px;
+    }
+
+    .chart-placeholder {
+        height: 300px;
+        background: linear-gradient(135deg, rgba(61, 90, 254, 0.1) 0%, rgba(213, 0, 249, 0.1) 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary-start);
+        font-size: 1.1rem;
+        font-weight: 600;
+        border: 2px dashed var(--primary-start);
+    }
+
+    .alerts-section {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 1.8rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        margin-bottom: 2rem;
+    }
+
+    .alert-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .alert-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .alert-item.warning {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+    }
+
+    .alert-item.info {
+        background-color: #d1ecf1;
+        border-left: 4px solid #17a2b8;
+    }
+
+    .alert-item.danger {
+        background-color: #f8d7da;
+        border-left: 4px solid #dc3545;
+    }
+
+    .alert-icon {
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        font-size: 1rem;
+        color: var(--text-white);
+    }
+
+    .alert-icon.warning {
+        background-color: #ffc107;
+    }
+
+    .alert-icon.info {
+        background-color: #17a2b8;
+    }
+
+    .alert-icon.danger {
+        background-color: #dc3545;
+    }
+
+    .alert-content {
+        flex: 1;
+    }
+
+    .alert-title {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+        font-size: 0.95rem;
+    }
+
+    .alert-description {
+        color: #6c757d;
+        font-size: 0.85rem;
+        margin: 0;
+    }
+
+    .upcoming-events {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 1.8rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    .event-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem 0;
+        border-bottom: 1px solid #f8f9fa;
+    }
+
+    .event-item:last-child {
+        border-bottom: none;
+    }
+
+    .event-date {
+        background: var(--primary-gradient);
+        color: var(--text-white);
+        border-radius: 10px;
+        padding: 0.75rem;
+        text-align: center;
+        margin-right: 1rem;
+        min-width: 60px;
+    }
+
+    .event-day {
+        font-size: 1.2rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .event-month {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .event-content {
+        flex: 1;
+    }
+
+    .event-title {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+        font-size: 0.95rem;
+    }
+
+    .event-time {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+
+    @media (max-width: 768px) {
+        .dashboard-header {
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .welcome-text {
+            font-size: 1.8rem;
+        }
+
+        .stats-card {
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .stats-number {
+            font-size: 2rem;
+        }
+
+        .quick-actions,
+        .recent-activities,
+        .alerts-section,
+        .upcoming-events,
+        .chart-container {
+            padding: 1.5rem;
+        }
+
+        .action-btn {
+            min-height: 120px;
+            padding: 1rem;
+        }
+
+        .action-btn i {
+            font-size: 1.8rem;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+        }
+
+        .chart-container {
+            height: 350px;
+        }
+
+        .chart-placeholder {
+            height: 250px;
+            font-size: 1rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .activity-item {
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+        }
+
+        .activity-icon {
+            margin-bottom: 0.5rem;
+            margin-right: 0;
+        }
+
+        .event-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .event-date {
+            margin-bottom: 0.75rem;
+            margin-right: 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1 class="welcome-text">Welcome back, {{ user.get_full_name }}!</h1>
+            <p class="welcome-subtitle">
+                Here's what's happening in your organization today.
+                {% if user.department %}
+                    You're managing {{ user.department.name }} department.
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <div class="d-flex flex-column align-items-md-end">
+                <div class="text-muted mb-1">{{ "now"|date:"l, F j, Y" }}</div>
+                <div class="fw-bold text-primary">{{ "now"|date:"g:i A" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="stats-icon employees">
+                <i class="bi bi-people-fill"></i>
+            </div>
+            <div class="stats-number">{{ dashboard_data.total_employees|default:0 }}</div>
+            <div class="stats-label">Total Employees</div>
+            <div class="stats-change positive">
+                <i class="bi bi-arrow-up"></i>
+                +{{ dashboard_data.new_employees_this_month|default:0 }} this month
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="stats-icon departments">
+                <i class="bi bi-diagram-3-fill"></i>
+            </div>
+            <div class="stats-number">{{ dashboard_data.total_departments|default:0 }}</div>
+            <div class="stats-label">Departments</div>
+            <div class="stats-change positive">
+                <i class="bi bi-check-circle"></i>
+                All active
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="stats-icon attendance">
+                <i class="bi bi-clock-fill"></i>
+            </div>
+            <div class="stats-number">{{ dashboard_data.attendance_today|default:0 }}%</div>
+            <div class="stats-label">Today's Attendance</div>
+            <div class="stats-change {% if dashboard_data.attendance_change >= 0 %}positive{% else %}negative{% endif %}">
+                <i class="bi bi-arrow-{% if dashboard_data.attendance_change >= 0 %}up{% else %}down{% endif %}"></i>
+                {{ dashboard_data.attendance_change|default:0 }}% from yesterday
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="stats-icon payroll">
+                <i class="bi bi-currency-dollar"></i>
+            </div>
+            <div class="stats-number">${{ dashboard_data.monthly_payroll|default:0|floatformat:0 }}</div>
+            <div class="stats-label">Monthly Payroll</div>
+            <div class="stats-change positive">
+                <i class="bi bi-calendar-check"></i>
+                Processed on time
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if user.is_hr_admin or user.is_department_manager %}
+<div class="quick-actions mb-4">
+    <h3 class="section-title">
+        <i class="bi bi-lightning-fill"></i>
+        Quick Actions
+    </h3>
+    <div class="row">
+        <div class="col-lg-2 col-md-4 col-6 mb-3">
+            <a href="{% url 'accounts:employee_create' %}" class="action-btn">
+                <i class="bi bi-person-plus"></i>
+                <span class="action-btn-text">Add Employee</span>
+            </a>
+        </div>
+        <div class="col-lg-2 col-md-4 col-6 mb-3">
+            <a href="{% url 'accounts:bulk_upload' %}" class="action-btn">
+                <i class="bi bi-upload"></i>
+                <span class="action-btn-text">Bulk Upload</span>
+            </a>
+        </div>
+        <div class="col-lg-2 col-md-4 col-6 mb-3">
+            <a href="{% url 'accounts:department_create' %}" class="action-btn">
+                <i class="bi bi-building-add"></i>
+                <span class="action-btn-text">Add Department</span>
+            </a>
+        </div>
+        <div class="col-lg-2 col-md-4 col-6 mb-3">
+            <a href="{% url 'accounts:export_employees' %}" class="action-btn">
+                <i class="bi bi-download"></i>
+                <span class="action-btn-text">Export Data</span>
+            </a>
+        </div>
+        <div class="col-lg-2 col-md-4 col-6 mb-3">
+            <a href="#" class="action-btn">
+                <i class="bi bi-file-earmark-text"></i>
+                <span class="action-btn-text">Generate Report</span>
+            </a>
+        </div>
+        <div class="col-lg-2 col-md-4 col-6 mb-3">
+            <a href="{% url 'accounts:system_settings' %}" class="action-btn">
+                <i class="bi bi-gear"></i>
+                <span class="action-btn-text">Settings</span>
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <div class="recent-activities">
+            <h3 class="section-title">
+                <i class="bi bi-activity"></i>
+                Recent Activities
+            </h3>
+            {% if recent_activities %}
+                {% for activity in recent_activities %}
+                <div class="activity-item">
+                    <div class="activity-icon {{ activity.action|lower }}">
+                        {% if activity.action == 'LOGIN' %}
+                            <i class="bi bi-box-arrow-in-right"></i>
+                        {% elif activity.action == 'USER_CREATED' %}
+                            <i class="bi bi-person-plus"></i>
+                        {% elif activity.action == 'USER_UPDATED' %}
+                            <i class="bi bi-person-gear"></i>
+                        {% elif activity.action == 'PASSWORD_CHANGE' %}
+                            <i class="bi bi-key"></i>
+                        {% else %}
+                            <i class="bi bi-info-circle"></i>
+                        {% endif %}
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-text">{{ activity.description }}</div>
+                        <div class="activity-time">{{ activity.timestamp|timesince }} ago</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                    <p class="text-muted mt-2">No recent activities</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="chart-container">
+            <h3 class="section-title">
+                <i class="bi bi-bar-chart-fill"></i>
+                Employee Growth
+            </h3>
+            <div class="chart-placeholder">
+                <div>
+                    <i class="bi bi-graph-up me-2"></i>
+                    Chart will be implemented with Chart.js
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        {% if system_alerts %}
+        <div class="alerts-section">
+            <h3 class="section-title">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                System Alerts
+            </h3>
+            {% for alert in system_alerts %}
+            <div class="alert-item {{ alert.type }}">
+                <div class="alert-icon {{ alert.type }}">
+                    {% if alert.type == 'warning' %}
+                        <i class="bi bi-exclamation-triangle"></i>
+                    {% elif alert.type == 'danger' %}
+                        <i class="bi bi-x-circle"></i>
+                    {% else %}
+                        <i class="bi bi-info-circle"></i>
+                    {% endif %}
+                </div>
+                <div class="alert-content">
+                    <div class="alert-title">{{ alert.title }}</div>
+                    <p class="alert-description">{{ alert.message }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="upcoming-events">
+            <h3 class="section-title">
+                <i class="bi bi-calendar-event"></i>
+                Upcoming Events
+            </h3>
+            <div class="event-item">
+                <div class="event-date">
+                    <div class="event-day">15</div>
+                    <div class="event-month">Dec</div>
+                </div>
+                <div class="event-content">
+                    <div class="event-title">Monthly Payroll Processing</div>
+                    <div class="event-time">9:00 AM - 5:00 PM</div>
+                </div>
+            </div>
+            <div class="event-item">
+                <div class="event-date">
+                    <div class="event-day">20</div>
+                    <div class="event-month">Dec</div>
+                </div>
+                <div class="event-content">
+                    <div class="event-title">Year-end Performance Reviews</div>
+                    <div class="event-time">All Day</div>
+                </div>
+            </div>
+            <div class="event-item">
+                <div class="event-date">
+                    <div class="event-day">25</div>
+                    <div class="event-month">Dec</div>
+                </div>
+                <div class="event-content">
+                    <div class="event-title">Holiday - Christmas Day</div>
+                    <div class="event-time">Company Closed</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function updateTime() {
+        const now = new Date();
+        const timeElement = document.querySelector('.fw-bold.text-primary');
+        if (timeElement) {
+            timeElement.textContent = now.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+    }
+
+    setInterval(updateTime, 60000);
+
+    const statsCards = document.querySelectorAll('.stats-card');
+    statsCards.forEach((card, index) => {
+        card.style.animationDelay = `${index * 0.1}s`;
+        card.classList.add('animate__animated', 'animate__fadeInUp');
+    });
+
+    const actionBtns = document.querySelectorAll('.action-btn');
+    actionBtns.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            if (this.href === '#' || this.href.includes('#')) {
+                e.preventDefault();
+                alert('This feature will be implemented in the next phase.');
+            }
+        });
+    });
+
+    const activityItems = document.querySelectorAll('.activity-item');
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateX(0)';
+            }
+        });
+    });
+
+    activityItems.forEach(item => {
+        item.style.opacity = '0';
+        item.style.transform = 'translateX(-20px)';
+        item.style.transition = 'all 0.5s ease';
+        observer.observe(item);
+    });
+
+    if (typeof Chart !== 'undefined') {
+        const ctx = document.querySelector('.chart-placeholder');
+        if (ctx) {
+            ctx.innerHTML = '<canvas id="employeeChart"></canvas>';
+            new Chart(document.getElementById('employeeChart'), {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Employees',
+                        data: [12, 19, 15, 25, 22, 30],
+                        borderColor: '#3D5AFE',
+                        backgroundColor: 'rgba(61, 90, 254, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+    }
+});
+</script>
+{% endblock %}
+
+
