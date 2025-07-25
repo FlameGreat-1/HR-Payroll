@@ -1,0 +1,813 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add New Employee - HR Payroll System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .employee-create-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .create-header {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        text-align: center;
+        border-left: 5px solid var(--primary-start);
+    }
+
+    .create-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: var(--primary-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        font-size: 2.5rem;
+        color: var(--text-white);
+        box-shadow: var(--shadow-glow);
+    }
+
+    .create-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .create-subtitle {
+        color: #6c757d;
+        font-size: 1.1rem;
+        margin-bottom: 0;
+    }
+
+    .form-card {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 2.5rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        margin-bottom: 2rem;
+    }
+
+    .form-section {
+        margin-bottom: 3rem;
+    }
+
+    .form-section:last-child {
+        margin-bottom: 0;
+    }
+
+    .section-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        border-bottom: 2px solid #f8f9fa;
+        padding-bottom: 0.75rem;
+    }
+
+    .section-title i {
+        margin-right: 0.75rem;
+        color: var(--primary-start);
+        font-size: 1.2rem;
+    }
+
+    .form-floating {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-floating .form-control,
+    .form-floating .form-select {
+        height: 60px;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        background-color: #f8f9fa;
+    }
+
+    .form-floating .form-control:focus,
+    .form-floating .form-select:focus {
+        border-color: var(--primary-start);
+        box-shadow: 0 0 0 0.25rem rgba(61, 90, 254, 0.15);
+        background-color: var(--text-white);
+    }
+
+    .form-floating .form-control.is-invalid,
+    .form-floating .form-select.is-invalid {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.15);
+    }
+
+    .form-floating .form-control.is-valid,
+    .form-floating .form-select.is-valid {
+        border-color: #28a745;
+        box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.15);
+    }
+
+    .form-floating label {
+        color: #6c757d;
+        font-weight: 500;
+        padding-left: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-floating .form-control:focus ~ label,
+    .form-floating .form-control:not(:placeholder-shown) ~ label,
+    .form-floating .form-select:focus ~ label,
+    .form-floating .form-select:not([value=""]) ~ label {
+        color: var(--primary-start);
+        transform: scale(0.85) translateY(-0.5rem) translateX(0.15rem);
+    }
+
+    .form-check {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        border-left: 4px solid var(--primary-start);
+    }
+
+    .form-check-input {
+        width: 1.2rem;
+        height: 1.2rem;
+        margin-right: 0.75rem;
+        border: 2px solid #dee2e6;
+        border-radius: 4px;
+    }
+
+    .form-check-input:checked {
+        background-color: var(--primary-start);
+        border-color: var(--primary-start);
+    }
+
+    .form-check-label {
+        font-weight: 600;
+        color: #495057;
+        cursor: pointer;
+        font-size: 0.95rem;
+    }
+
+    .form-check-description {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+        margin-left: 2rem;
+    }
+
+    .required-field::after {
+        content: ' *';
+        color: #dc3545;
+        font-weight: bold;
+    }
+
+    .employee-code-generator {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+    }
+
+    .generate-code-btn {
+        background: var(--primary-gradient);
+        border: none;
+        color: var(--text-white);
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-glow);
+    }
+
+    .generate-code-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(213, 0, 249, 0.4);
+    }
+
+    .generated-code {
+        font-family: 'Courier New', monospace;
+        font-weight: 700;
+        color: var(--primary-start);
+        background-color: rgba(61, 90, 254, 0.1);
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+
+    .password-info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #17a2b8;
+    }
+
+    .password-info-title {
+        font-weight: 600;
+        color: #0c5460;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .password-info-title i {
+        margin-right: 0.5rem;
+    }
+
+    .password-info-text {
+        color: #0c5460;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 2.5rem;
+        padding-top: 2rem;
+        border-top: 2px solid #f8f9fa;
+    }
+
+    .create-employee-btn {
+        background: var(--primary-gradient);
+        border: none;
+        color: var(--text-white);
+        font-weight: 700;
+        font-size: 1.1rem;
+        padding: 1rem 2.5rem;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-glow);
+        position: relative;
+        overflow: hidden;
+        min-width: 200px;
+    }
+
+    .create-employee-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .create-employee-btn:hover::before {
+        left: 100%;
+    }
+
+    .create-employee-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(213, 0, 249, 0.4);
+    }
+
+    .create-employee-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .loading-spinner {
+        display: none;
+        margin-right: 0.5rem;
+    }
+
+    .create-employee-btn.loading .loading-spinner {
+        display: inline-block;
+    }
+
+    .create-employee-btn.loading .btn-text {
+        opacity: 0.7;
+    }
+
+    .cancel-btn {
+        background: transparent;
+        border: 2px solid #6c757d;
+        color: #6c757d;
+        font-weight: 600;
+        padding: 1rem 2.5rem;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+        min-width: 200px;
+    }
+
+    .cancel-btn:hover {
+        background-color: #6c757d;
+        color: var(--text-white);
+        transform: translateY(-2px);
+        text-decoration: none;
+    }
+
+    .validation-summary {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 2rem;
+        border-left: 4px solid #dc3545;
+        display: none;
+    }
+
+    .validation-summary.show {
+        display: block;
+    }
+
+    .validation-title {
+        font-weight: 600;
+        color: #721c24;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .validation-title i {
+        margin-right: 0.5rem;
+    }
+
+    .validation-list {
+        color: #721c24;
+        font-size: 0.9rem;
+        margin: 0;
+        padding-left: 1.5rem;
+    }
+
+    .validation-list li {
+        margin-bottom: 0.25rem;
+    }
+
+    @media (max-width: 768px) {
+        .employee-create-container {
+            padding: 0 1rem;
+        }
+
+        .create-header {
+            padding: 1.5rem;
+        }
+
+        .create-icon {
+            width: 60px;
+            height: 60px;
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .create-title {
+            font-size: 1.8rem;
+        }
+
+        .form-card {
+            padding: 2rem;
+        }
+
+        .form-floating .form-control,
+        .form-floating .form-select {
+            height: 55px;
+        }
+
+        .form-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .create-employee-btn,
+        .cancel-btn {
+            min-width: auto;
+            width: 100%;
+        }
+
+        .employee-code-generator {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="employee-create-container">
+    <div class="create-header">
+        <div class="create-icon">
+            <i class="bi bi-person-plus"></i>
+        </div>
+        <h1 class="create-title">Add New Employee</h1>
+        <p class="create-subtitle">
+            Create a new employee account and set up their profile information
+        </p>
+    </div>
+
+    <div class="form-card">
+        <div class="validation-summary" id="validationSummary">
+            <div class="validation-title">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                Please correct the following errors:
+            </div>
+            <ul class="validation-list" id="validationList"></ul>
+        </div>
+
+        <form method="post" id="employeeCreateForm" novalidate>
+            {% csrf_token %}
+
+            <div class="form-section">
+                <h3 class="section-title">
+                    <i class="bi bi-person-fill"></i>
+                    Personal Information
+                </h3>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.first_name }}
+                            <label for="{{ form.first_name.id_for_label }}" class="required-field">First Name</label>
+                            {% if form.first_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.first_name.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.last_name }}
+                            <label for="{{ form.last_name.id_for_label }}" class="required-field">Last Name</label>
+                            {% if form.last_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.last_name.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.email }}
+                            <label for="{{ form.email.id_for_label }}" class="required-field">Email Address</label>
+                            {% if form.email.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.email.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.phone_number }}
+                            <label for="{{ form.phone_number.id_for_label }}">Phone Number</label>
+                            {% if form.phone_number.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.phone_number.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.date_of_birth }}
+                            <label for="{{ form.date_of_birth.id_for_label }}">Date of Birth</label>
+                            {% if form.date_of_birth.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.date_of_birth.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.gender }}
+                            <label for="{{ form.gender.id_for_label }}">Gender</label>
+                            {% if form.gender.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.gender.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-floating">
+                    {{ form.address }}
+                    <label for="{{ form.address.id_for_label }}">Address</label>
+                    {% if form.address.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.address.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="form-floating">
+                    {{ form.emergency_contact }}
+                    <label for="{{ form.emergency_contact.id_for_label }}">Emergency Contact</label>
+                    {% if form.emergency_contact.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.emergency_contact.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3 class="section-title">
+                    <i class="bi bi-briefcase-fill"></i>
+                    Employment Details
+                </h3>
+
+                <div class="form-floating">
+                    {{ form.employee_code }}
+                    <label for="{{ form.employee_code.id_for_label }}" class="required-field">Employee Code</label>
+                    <div class="employee-code-generator">
+                        <button type="button" class="generate-code-btn" id="generateCodeBtn">
+                            <i class="bi bi-magic"></i> Generate Code
+                        </button>
+                        <span id="generatedCodeDisplay" class="generated-code" style="display: none;"></span>
+                    </div>
+                    {% if form.employee_code.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.employee_code.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.department }}
+                            <label for="{{ form.department.id_for_label }}">Department</label>
+                            {% if form.department.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.department.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.role }}
+                            <label for="{{ form.role.id_for_label }}">Role</label>
+                            {% if form.role.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.role.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.manager }}
+                            <label for="{{ form.manager.id_for_label }}">Manager</label>
+                            {% if form.manager.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.manager.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.hire_date }}
+                            <label for="{{ form.hire_date.id_for_label }}">Hire Date</label>
+                            {% if form.hire_date.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.hire_date.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.employment_type }}
+                            <label for="{{ form.employment_type.id_for_label }}">Employment Type</label>
+                            {% if form.employment_type.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.employment_type.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.salary }}
+                            <label for="{{ form.salary.id_for_label }}">Salary</label>
+                            {% if form.salary.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.salary.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3 class="section-title">
+                    <i class="bi bi-shield-check"></i>
+                    System Access & Permissions
+                </h3>
+
+                <div class="password-info">
+                    <div class="password-info-title">
+                        <i class="bi bi-info-circle"></i>
+                        Default Password Information
+                    </div>
+                    <p class="password-info-text">
+                        A temporary password will be automatically generated for this employee. 
+                        They will be required to change it upon their first login.
+                    </p>
+                </div>
+
+                <div class="form-check">
+                    {{ form.is_hr_admin }}
+                    <label class="form-check-label" for="{{ form.is_hr_admin.id_for_label }}">
+                        HR Administrator
+                    </label>
+                    <div class="form-check-description">
+                        Can manage all employees, departments, and system settings
+                    </div>
+                </div>
+
+                <div class="form-check">
+                    {{ form.is_department_manager }}
+                    <label class="form-check-label" for="{{ form.is_department_manager.id_for_label }}">
+                        Department Manager
+                    </label>
+                    <div class="form-check-description">
+                        Can manage employees within their department
+                    </div>
+                </div>
+
+                <div class="form-check">
+                    {{ form.is_active }}
+                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                        Active Account
+                    </label>
+                    <div class="form-check-description">
+                        Employee can log in and access the system
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn create-employee-btn" id="createEmployeeBtn">
+                    <span class="loading-spinner spinner-border spinner-border-sm" role="status"></span>
+                    <span class="btn-text">Create Employee</span>
+                </button>
+                <a href="{% url 'accounts:employee_list' %}" class="cancel-btn">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('employeeCreateForm');
+    const createBtn = document.getElementById('createEmployeeBtn');
+    const generateCodeBtn = document.getElementById('generateCodeBtn');
+    const employeeCodeField = document.getElementById('{{ form.employee_code.id_for_label }}');
+    const generatedCodeDisplay = document.getElementById('generatedCodeDisplay');
+    const validationSummary = document.getElementById('validationSummary');
+    const validationList = document.getElementById('validationList');
+
+    generateCodeBtn.addEventListener('click', function() {
+        const firstName = document.getElementById('{{ form.first_name.id_for_label }}').value;
+        const lastName = document.getElementById('{{ form.last_name.id_for_label }}').value;
+        
+        if (!firstName || !lastName) {
+            alert('Please enter first name and last name before generating employee code.');
+            return;
+        }
+
+        const timestamp = Date.now().toString().slice(-4);
+        const code = `${firstName.substring(0, 2).toUpperCase()}${lastName.substring(0, 2).toUpperCase()}${timestamp}`;
+        
+        employeeCodeField.value = code;
+        generatedCodeDisplay.textContent = code;
+        generatedCodeDisplay.style.display = 'inline-block';
+        
+        employeeCodeField.classList.remove('is-invalid');
+        employeeCodeField.classList.add('is-valid');
+    });
+
+    function validateForm() {
+        const errors = [];
+        const requiredFields = [
+            { field: document.getElementById('{{ form.first_name.id_for_label }}'), name: 'First Name' },
+            { field: document.getElementById('{{ form.last_name.id_for_label }}'), name: 'Last Name' },
+            { field: document.getElementById('{{ form.email.id_for_label }}'), name: 'Email Address' },
+            { field: document.getElementById('{{ form.employee_code.id_for_label }}'), name: 'Employee Code' }
+        ];
+
+        requiredFields.forEach(item => {
+            if (!item.field.value.trim()) {
+                errors.push(`${item.name} is required`);
+                item.field.classList.add('is-invalid');
+            } else {
+                item.field.classList.remove('is-invalid');
+                item.field.classList.add('is-valid');
+            }
+        });
+
+        const emailField = document.getElementById('{{ form.email.id_for_label }}');
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (emailField.value && !emailPattern.test(emailField.value)) {
+            errors.push('Please enter a valid email address');
+            emailField.classList.add('is-invalid');
+        }
+
+        if (errors.length > 0) {
+            validationList.innerHTML = errors.map(error => `<li>${error}</li>`).join('');
+            validationSummary.classList.add('show');
+            validationSummary.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+        } else {
+            validationSummary.classList.remove('show');
+            return true;
+        }
+    }
+
+    form.addEventListener('submit', function(e) {
+        if (!validateForm()) {
+            e.preventDefault();
+            return false;
+        }
+
+        createBtn.classList.add('loading');
+        createBtn.disabled = true;
+
+        setTimeout(function() {
+            if (createBtn.classList.contains('loading')) {
+                createBtn.classList.remove('loading');
+                createBtn.disabled = false;
+            }
+        }, 10000);
+    });
+
+    const formControls = document.querySelectorAll('.form-control, .form-select');
+    formControls.forEach(control => {
+        control.addEventListener('input', function() {
+            if (this.value.trim()) {
+                this.classList.remove('is-invalid');
+            }
+        });
+
+        control.addEventListener('focus', function() {
+            this.classList.remove('is-invalid');
+        });
+    });
+
+    const hireDateField = document.getElementById('{{ form.hire_date.id_for_label }}');
+    if (hireDateField && !hireDateField.value) {
+        const today = new Date().toISOString().split('T')[0];
+        hireDateField.value = today;
+    }
+
+    const firstNameField = document.getElementById('{{ form.first_name.id_for_label }}');
+    const lastNameField = document.getElementById('{{ form.last_name.id_for_label }}');
+    
+    [firstNameField, lastNameField].forEach(field => {
+        if (field) {
+            field.addEventListener('input', function() {
+                this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
+            });
+        }
+    });
+
+    const phoneField = document.getElementById('{{ form.phone_number.id_for_label }}');
+    if (phoneField) {
+        phoneField.addEventListener('input', function() {
+            this.value = this.value.replace(/[^0-9+\-\s()]/g, '');
+        });
+    }
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,872 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ employee.get_full_name }} - Employee Details - HR Payroll System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .employee-detail-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .employee-header {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        border-left: 5px solid var(--primary-start);
+    }
+
+    .employee-avatar-large {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: var(--primary-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-white);
+        font-weight: 700;
+        font-size: 2.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--shadow-glow);
+        position: relative;
+    }
+
+    .employee-avatar-large::after {
+        content: '';
+        position: absolute;
+        top: -5px;
+        left: -5px;
+        right: -5px;
+        bottom: -5px;
+        border-radius: 50%;
+        background: var(--primary-gradient);
+        z-index: -1;
+        opacity: 0.3;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 0.3; }
+        50% { transform: scale(1.05); opacity: 0.1; }
+        100% { transform: scale(1); opacity: 0.3; }
+    }
+
+    .employee-name {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .employee-title {
+        font-size: 1.2rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+
+    .employee-code {
+        background: var(--primary-gradient);
+        color: var(--text-white);
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        display: inline-block;
+        margin-bottom: 1rem;
+    }
+
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        animation: blink 2s infinite;
+    }
+
+    .status-dot.active {
+        background-color: #28a745;
+    }
+
+    .status-dot.inactive {
+        background-color: #dc3545;
+    }
+
+    .status-dot.suspended {
+        background-color: #ffc107;
+    }
+
+    .status-dot.terminated {
+        background-color: #6c757d;
+    }
+
+    @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0.3; }
+    }
+
+    .status-text {
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.9rem;
+    }
+
+    .status-text.active { color: #28a745; }
+    .status-text.inactive { color: #dc3545; }
+    .status-text.suspended { color: #ffc107; }
+    .status-text.terminated { color: #6c757d; }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-top: 1.5rem;
+    }
+
+    .edit-btn {
+        background: var(--primary-gradient);
+        border: none;
+        color: var(--text-white);
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-glow);
+        display: flex;
+        align-items: center;
+    }
+
+    .edit-btn:hover {
+        color: var(--text-white);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(213, 0, 249, 0.4);
+        text-decoration: none;
+    }
+
+    .edit-btn i {
+        margin-right: 0.5rem;
+    }
+
+    .status-btn {
+        border: none;
+        color: var(--text-white);
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+    }
+
+    .status-btn.activate {
+        background: #28a745;
+    }
+
+    .status-btn.deactivate {
+        background: #dc3545;
+    }
+
+    .status-btn.suspend {
+        background: #ffc107;
+        color: #333;
+    }
+
+    .status-btn:hover {
+        transform: translateY(-2px);
+        opacity: 0.9;
+    }
+
+    .status-btn i {
+        margin-right: 0.5rem;
+    }
+
+    .reset-password-btn {
+        background: #17a2b8;
+        border: none;
+        color: var(--text-white);
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+    }
+
+    .reset-password-btn:hover {
+        background: #138496;
+        transform: translateY(-2px);
+    }
+
+    .reset-password-btn i {
+        margin-right: 0.5rem;
+    }
+
+    .detail-card {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+    }
+
+    .detail-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+    }
+
+    .card-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        border-bottom: 2px solid #f8f9fa;
+        padding-bottom: 0.75rem;
+    }
+
+    .card-title i {
+        margin-right: 0.75rem;
+        color: var(--primary-start);
+        font-size: 1.2rem;
+    }
+
+    .info-row {
+        display: flex;
+        margin-bottom: 1.25rem;
+        align-items: flex-start;
+    }
+
+    .info-row:last-child {
+        margin-bottom: 0;
+    }
+
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+        min-width: 140px;
+        margin-right: 1rem;
+        font-size: 0.95rem;
+    }
+
+    .info-value {
+        color: #333;
+        flex: 1;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .info-value.empty {
+        color: #6c757d;
+        font-style: italic;
+    }
+
+    .permission-badge {
+        display: inline-block;
+        background: var(--primary-gradient);
+        color: var(--text-white);
+        padding: 0.4rem 0.8rem;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin: 0.25rem 0.25rem 0.25rem 0;
+        box-shadow: 0 2px 8px rgba(61, 90, 254, 0.3);
+    }
+
+    .permission-badge.admin {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+    }
+
+    .permission-badge.hr {
+        background: linear-gradient(135deg, #4834d4 0%, #686de0 100%);
+    }
+
+    .permission-badge.manager {
+        background: linear-gradient(135deg, #00d2d3 0%, #54a0ff 100%);
+    }
+
+    .activity-timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+
+    .activity-timeline::before {
+        content: '';
+        position: absolute;
+        left: 0.75rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--primary-gradient);
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        border-left: 4px solid var(--primary-start);
+    }
+
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -2.25rem;
+        top: 1rem;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--primary-start);
+        border: 3px solid var(--text-white);
+        box-shadow: 0 0 0 3px var(--primary-start);
+    }
+
+    .timeline-content {
+        margin-left: 0;
+    }
+
+    .timeline-action {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+        font-size: 0.95rem;
+    }
+
+    .timeline-details {
+        color: #6c757d;
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .timeline-time {
+        color: #6c757d;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-item {
+        background: var(--text-white);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        border-top: 4px solid var(--primary-start);
+    }
+
+    .stat-item:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-start);
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        color: #6c757d;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    @media (max-width: 768px) {
+        .employee-detail-container {
+            padding: 0 1rem;
+        }
+
+        .employee-header {
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .employee-avatar-large {
+            width: 80px;
+            height: 80px;
+            font-size: 2rem;
+            margin: 0 auto 1rem;
+        }
+
+        .employee-name {
+            font-size: 1.8rem;
+        }
+
+        .employee-title {
+            font-size: 1rem;
+        }
+
+        .action-buttons {
+            justify-content: center;
+        }
+
+        .detail-card {
+            padding: 1.5rem;
+        }
+
+        .info-row {
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+
+        .info-label {
+            min-width: auto;
+            margin-right: 0;
+            margin-bottom: 0.25rem;
+            font-weight: 700;
+        }
+
+        .activity-timeline {
+            padding-left: 1.5rem;
+        }
+
+        .timeline-item::before {
+            left: -1.75rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .stat-item {
+            padding: 1.25rem;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="employee-detail-container">
+    <div class="employee-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="d-flex align-items-center">
+                    <div class="employee-avatar-large">
+                        {{ employee.first_name|first|upper }}{{ employee.last_name|first|upper }}
+                    </div>
+                    <div class="ms-md-4">
+                        <h1 class="employee-name">{{ employee.get_full_name }}</h1>
+                        <p class="employee-title">
+                            {% if employee.role %}
+                                {{ employee.role.name }}
+                                {% if employee.department %} - {{ employee.department.name }}{% endif %}
+                            {% else %}
+                                {% if employee.department %}{{ employee.department.name }}{% else %}No Role Assigned{% endif %}
+                            {% endif %}
+                        </p>
+                        <div class="employee-code">{{ employee.employee_code }}</div>
+                        <div class="status-indicator">
+                            <div class="status-dot {{ employee.status|lower }}"></div>
+                            <span class="status-text {{ employee.status|lower }}">{{ employee.get_status_display }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="action-buttons">
+                    <a href="{% url 'accounts:employee_update' employee.pk %}" class="edit-btn">
+                        <i class="bi bi-pencil"></i>
+                        Edit Employee
+                    </a>
+                    
+                    {% if employee.status == 'ACTIVE' %}
+                        <button type="button" class="btn status-btn deactivate" onclick="changeStatus('deactivate')">
+                            <i class="bi bi-pause"></i>
+                            Deactivate
+                        </button>
+                    {% elif employee.status == 'INACTIVE' %}
+                        <button type="button" class="btn status-btn activate" onclick="changeStatus('activate')">
+                            <i class="bi bi-play"></i>
+                            Activate
+                        </button>
+                    {% elif employee.status == 'SUSPENDED' %}
+                        <button type="button" class="btn status-btn activate" onclick="changeStatus('activate')">
+                            <i class="bi bi-play"></i>
+                            Reactivate
+                        </button>
+                    {% endif %}
+                    
+                    {% if employee.status != 'SUSPENDED' and employee.status != 'TERMINATED' %}
+                        <button type="button" class="btn status-btn suspend" onclick="changeStatus('suspend')">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Suspend
+                        </button>
+                    {% endif %}
+                    
+                    <button type="button" class="btn reset-password-btn" onclick="resetPassword()">
+                        <i class="bi bi-key"></i>
+                        Reset Password
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="stat-number">{{ employee.days_employed|default:0 }}</div>
+            <div class="stat-label">Days Employed</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ employee.login_count|default:0 }}</div>
+            <div class="stat-label">Total Logins</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">
+                {% if employee.last_login %}
+                    {{ employee.last_login|timesince }} ago
+                {% else %}
+                    Never
+                {% endif %}
+            </div>
+            <div class="stat-label">Last Login</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">
+                {% if employee.password_changed_at %}
+                    {{ employee.password_changed_at|timesince }} ago
+                {% else %}
+                    Never
+                {% endif %}
+            </div>
+            <div class="stat-label">Password Changed</div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="detail-card">
+                <h3 class="card-title">
+                    <i class="bi bi-person-fill"></i>
+                    Personal Information
+                </h3>
+                <div class="info-row">
+                    <div class="info-label">Full Name:</div>
+                    <div class="info-value">{{ employee.get_full_name }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Email:</div>
+                    <div class="info-value">{{ employee.email|default:"Not provided" }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Phone:</div>
+                    <div class="info-value">{{ employee.phone_number|default:"Not provided" }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Date of Birth:</div>
+                    <div class="info-value">
+                        {% if employee.date_of_birth %}
+                            {{ employee.date_of_birth|date:"F d, Y" }}
+                        {% else %}
+                            <span class="empty">Not provided</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Gender:</div>
+                    <div class="info-value">{{ employee.get_gender_display|default:"Not specified" }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Address:</div>
+                    <div class="info-value">{{ employee.address|default:"Not provided" }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Emergency Contact:</div>
+                    <div class="info-value">{{ employee.emergency_contact|default:"Not provided" }}</div>
+                </div>
+            </div>
+
+            <div class="detail-card">
+                <h3 class="card-title">
+                    <i class="bi bi-briefcase-fill"></i>
+                    Employment Details
+                </h3>
+                <div class="info-row">
+                    <div class="info-label">Employee Code:</div>
+                    <div class="info-value">{{ employee.employee_code }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Department:</div>
+                    <div class="info-value">
+                        {% if employee.department %}
+                            {{ employee.department.name }}
+                        {% else %}
+                            <span class="empty">Not assigned</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Role:</div>
+                    <div class="info-value">
+                        {% if employee.role %}
+                            {{ employee.role.name }}
+                        {% else %}
+                            <span class="empty">Not assigned</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Manager:</div>
+                    <div class="info-value">
+                        {% if employee.manager %}
+                            <a href="{% url 'accounts:employee_detail' employee.manager.pk %}" class="text-decoration-none">
+                                {{ employee.manager.get_full_name }}
+                            </a>
+                        {% else %}
+                            <span class="empty">No manager assigned</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Hire Date:</div>
+                    <div class="info-value">
+                        {% if employee.hire_date %}
+                            {{ employee.hire_date|date:"F d, Y" }}
+                        {% else %}
+                            <span class="empty">Not set</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Employment Type:</div>
+                    <div class="info-value">{{ employee.get_employment_type_display|default:"Not specified" }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Salary:</div>
+                    <div class="info-value">
+                        {% if employee.salary %}
+                            ${{ employee.salary|floatformat:2 }}
+                        {% else %}
+                            <span class="empty">Not set</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Status:</div>
+                    <div class="info-value">
+                        <span class="status-text {{ employee.status|lower }}">
+                            {{ employee.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-card">
+                <h3 class="card-title">
+                    <i class="bi bi-shield-check"></i>
+                    Permissions & Access
+                </h3>
+                <div class="info-row">
+                    <div class="info-label">System Access:</div>
+                    <div class="info-value">
+                        {% if employee.is_active %}
+                            <span class="text-success fw-bold">Active</span>
+                        {% else %}
+                            <span class="text-danger fw-bold">Inactive</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Account Type:</div>
+                    <div class="info-value">
+                        {% if employee.is_superuser %}
+                            <span class="permission-badge admin">Super Administrator</span>
+                        {% elif employee.is_hr_admin %}
+                            <span class="permission-badge hr">HR Administrator</span>
+                        {% elif employee.is_department_manager %}
+                            <span class="permission-badge manager">Department Manager</span>
+                        {% else %}
+                            <span class="permission-badge">Regular Employee</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Must Change Password:</div>
+                    <div class="info-value">
+                        {% if employee.must_change_password %}
+                            <span class="text-warning fw-bold">Yes</span>
+                        {% else %}
+                            <span class="text-success fw-bold">No</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Account Locked:</div>
+                    <div class="info-value">
+                        {% if employee.is_locked %}
+                            <span class="text-danger fw-bold">Yes</span>
+                        {% else %}
+                            <span class="text-success fw-bold">No</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="detail-card">
+                <h3 class="card-title">
+                    <i class="bi bi-clock-history"></i>
+                    Recent Activity
+                </h3>
+                <div class="activity-timeline">
+                    {% for activity in recent_activities %}
+                    <div class="timeline-item">
+                        <div class="timeline-content">
+                            <div class="timeline-action">{{ activity.action }}</div>
+                            <div class="timeline-details">{{ activity.description }}</div>
+                            <div class="timeline-time">{{ activity.timestamp|timesince }} ago</div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                        <p class="mt-2">No recent activity</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if employee.subordinates.exists %}
+            <div class="detail-card">
+                <h3 class="card-title">
+                    <i class="bi bi-people"></i>
+                    Direct Reports
+                </h3>
+                {% for subordinate in employee.subordinates.all %}
+                <div class="d-flex align-items-center mb-3">
+                    <div class="employee-avatar me-3" style="width: 35px; height: 35px; font-size: 0.8rem;">
+                        {{ subordinate.first_name|first|upper }}{{ subordinate.last_name|first|upper }}
+                    </div>
+                    <div>
+                        <a href="{% url 'accounts:employee_detail' subordinate.pk %}" class="text-decoration-none fw-bold">
+                            {{ subordinate.get_full_name }}
+                        </a>
+                        <div class="small text-muted">{{ subordinate.role.name|default:"No Role" }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    window.changeStatus = function(action) {
+        const actionText = action.charAt(0).toUpperCase() + action.slice(1);
+        const confirmMessage = `Are you sure you want to ${action} {{ employee.get_full_name }}?`;
+        
+        if (confirm(confirmMessage)) {
+            showLoading();
+            
+            fetch('{% url "accounts:bulk_user_action" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    user_ids: [{{ employee.id }}],
+                    action: action,
+                    reason: `${actionText} action performed from employee detail page`
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                alert('An error occurred: ' + error.message);
+            });
+        }
+    };
+
+    window.resetPassword = function() {
+        if (confirm('Are you sure you want to reset {{ employee.get_full_name }}\'s password? They will be required to change it on next login.')) {
+            showLoading();
+            
+            fetch('{% url "accounts:bulk_user_action" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    user_ids: [{{ employee.id }}],
+                    action: 'reset_password',
+                    reason: 'Password reset from employee detail page'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    alert('Password has been reset successfully. The employee will be required to change it on next login.');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                alert('An error occurred: ' + error.message);
+            });
+        }
+    };
+
+    const statItems = document.querySelectorAll('.stat-item');
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    });
+
+    statItems.forEach(item => {
+        item.style.opacity = '0';
+        item.style.transform = 'translateY(20px)';
+        item.style.transition = 'all 0.5s ease';
+        observer.observe(item);
+    });
+});
+</script>
+{% endblock %}
+

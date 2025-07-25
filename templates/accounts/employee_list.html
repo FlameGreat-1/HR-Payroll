@@ -1,0 +1,856 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Employee Management - HR Payroll System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .employee-header {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        border-left: 5px solid var(--primary-start);
+    }
+
+    .page-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .page-title i {
+        margin-right: 1rem;
+        color: var(--primary-start);
+    }
+
+    .page-subtitle {
+        color: #6c757d;
+        font-size: 1.1rem;
+        margin-bottom: 0;
+    }
+
+    .search-filter-card {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 1.8rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    .search-input {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background-color: #f8f9fa;
+    }
+
+    .search-input:focus {
+        border-color: var(--primary-start);
+        box-shadow: 0 0 0 0.25rem rgba(61, 90, 254, 0.15);
+        background-color: var(--text-white);
+    }
+
+    .filter-select {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background-color: #f8f9fa;
+    }
+
+    .filter-select:focus {
+        border-color: var(--primary-start);
+        box-shadow: 0 0 0 0.25rem rgba(61, 90, 254, 0.15);
+        background-color: var(--text-white);
+    }
+
+    .search-btn {
+        background: var(--primary-gradient);
+        border: none;
+        color: var(--text-white);
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-glow);
+    }
+
+    .search-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(213, 0, 249, 0.4);
+    }
+
+    .clear-btn {
+        background: transparent;
+        border: 2px solid #6c757d;
+        color: #6c757d;
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+    .clear-btn:hover {
+        background-color: #6c757d;
+        color: var(--text-white);
+        transform: translateY(-2px);
+    }
+
+    .actions-bar {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .bulk-actions {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .bulk-select {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+        min-width: 150px;
+    }
+
+    .bulk-btn {
+        background: #6c757d;
+        border: none;
+        color: var(--text-white);
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+    .bulk-btn:hover {
+        background: #5a6268;
+        transform: translateY(-1px);
+    }
+
+    .bulk-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .add-employee-btn {
+        background: var(--primary-gradient);
+        border: none;
+        color: var(--text-white);
+        font-weight: 600;
+        padding: 0.75rem 1.25rem;
+        border-radius: 10px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-glow);
+        display: flex;
+        align-items: center;
+    }
+
+    .add-employee-btn:hover {
+        color: var(--text-white);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(213, 0, 249, 0.4);
+        text-decoration: none;
+    }
+
+    .add-employee-btn i {
+        margin-right: 0.5rem;
+    }
+
+    .export-btn {
+        background: #28a745;
+        border: none;
+        color: var(--text-white);
+        font-weight: 600;
+        padding: 0.75rem 1.25rem;
+        border-radius: 10px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+    }
+
+    .export-btn:hover {
+        background: #218838;
+        color: var(--text-white);
+        transform: translateY(-2px);
+        text-decoration: none;
+    }
+
+    .export-btn i {
+        margin-right: 0.5rem;
+    }
+
+    .bulk-upload-btn {
+        background: #17a2b8;
+        border: none;
+        color: var(--text-white);
+        font-weight: 600;
+        padding: 0.75rem 1.25rem;
+        border-radius: 10px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+    }
+
+    .bulk-upload-btn:hover {
+        background: #138496;
+        color: var(--text-white);
+        transform: translateY(-2px);
+        text-decoration: none;
+    }
+
+    .bulk-upload-btn i {
+        margin-right: 0.5rem;
+    }
+
+    .employees-table-card {
+        background: var(--text-white);
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        margin-bottom: 2rem;
+    }
+
+    .table-responsive {
+        border-radius: 15px;
+    }
+
+    .employees-table {
+        margin-bottom: 0;
+    }
+
+    .employees-table thead th {
+        background: var(--primary-gradient);
+        color: var(--text-white);
+        font-weight: 600;
+        border: none;
+        padding: 1.25rem 1rem;
+        font-size: 0.95rem;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .employees-table tbody td {
+        padding: 1rem;
+        border-color: #f8f9fa;
+        vertical-align: middle;
+        font-size: 0.9rem;
+    }
+
+    .employees-table tbody tr {
+        transition: all 0.3s ease;
+    }
+
+    .employees-table tbody tr:hover {
+        background-color: rgba(61, 90, 254, 0.05);
+    }
+
+    .employee-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--primary-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-white);
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-right: 0.75rem;
+    }
+
+    .employee-info {
+        display: flex;
+        align-items: center;
+    }
+
+    .employee-details h6 {
+        margin-bottom: 0.25rem;
+        font-weight: 600;
+        color: #333;
+        font-size: 0.95rem;
+    }
+
+    .employee-details small {
+        color: #6c757d;
+        font-size: 0.8rem;
+    }
+
+    .status-badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .status-badge.active {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .status-badge.inactive {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .status-badge.suspended {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+
+    .status-badge.terminated {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .action-dropdown {
+        position: relative;
+    }
+
+    .action-btn {
+        background: none;
+        border: 2px solid #e9ecef;
+        color: #6c757d;
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        transition: all 0.3s ease;
+    }
+
+    .action-btn:hover {
+        border-color: var(--primary-start);
+        color: var(--primary-start);
+    }
+
+    .checkbox-cell {
+        width: 50px;
+        text-align: center;
+    }
+
+    .employee-checkbox {
+        width: 1.1rem;
+        height: 1.1rem;
+        cursor: pointer;
+    }
+
+    .select-all-checkbox {
+        width: 1.1rem;
+        height: 1.1rem;
+        cursor: pointer;
+    }
+
+    .no-employees {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: #6c757d;
+    }
+
+    .no-employees i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        color: #dee2e6;
+    }
+
+    .pagination-wrapper {
+        background: var(--text-white);
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .pagination-info {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .pagination .page-link {
+        border: 2px solid #e9ecef;
+        color: #6c757d;
+        padding: 0.5rem 0.75rem;
+        margin: 0 0.125rem;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .pagination .page-link:hover {
+        border-color: var(--primary-start);
+        color: var(--primary-start);
+        background-color: rgba(61, 90, 254, 0.1);
+    }
+
+    .pagination .page-item.active .page-link {
+        background: var(--primary-gradient);
+        border-color: transparent;
+        color: var(--text-white);
+        box-shadow: var(--shadow-glow);
+    }
+
+    @media (max-width: 768px) {
+        .employee-header {
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .page-title {
+            font-size: 1.8rem;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .page-title i {
+            margin-right: 0;
+            margin-bottom: 0.5rem;
+        }
+
+        .search-filter-card {
+            padding: 1.5rem;
+        }
+
+        .actions-bar {
+            padding: 1.25rem;
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .bulk-actions {
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .action-buttons {
+            justify-content: center;
+        }
+
+        .employees-table thead th {
+            padding: 1rem 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .employees-table tbody td {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .employee-avatar {
+            width: 35px;
+            height: 35px;
+            font-size: 0.8rem;
+        }
+
+        .employee-details h6 {
+            font-size: 0.85rem;
+        }
+
+        .employee-details small {
+            font-size: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="employee-header">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1 class="page-title">
+                <i class="bi bi-people-fill"></i>
+                Employee Management
+            </h1>
+            <p class="page-subtitle">
+                Manage your organization's workforce efficiently
+            </p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <div class="text-muted">
+                Total Employees: <strong>{{ page_obj.paginator.count }}</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="search-filter-card">
+    <form method="get" id="searchForm">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control search-input" 
+                       placeholder="Search employees..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-2">
+                <select name="department" class="form-select filter-select">
+                    <option value="">All Departments</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if request.GET.department == dept.id|stringformat:"s" %}selected{% endif %}>
+                            {{ dept.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="role" class="form-select filter-select">
+                    <option value="">All Roles</option>
+                    {% for role in roles %}
+                        <option value="{{ role.id }}" {% if request.GET.role == role.id|stringformat:"s" %}selected{% endif %}>
+                            {{ role.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="status" class="form-select filter-select">
+                    <option value="">All Status</option>
+                    <option value="ACTIVE" {% if request.GET.status == "ACTIVE" %}selected{% endif %}>Active</option>
+                    <option value="INACTIVE" {% if request.GET.status == "INACTIVE" %}selected{% endif %}>Inactive</option>
+                    <option value="SUSPENDED" {% if request.GET.status == "SUSPENDED" %}selected{% endif %}>Suspended</option>
+                    <option value="TERMINATED" {% if request.GET.status == "TERMINATED" %}selected{% endif %}>Terminated</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn search-btn flex-fill">
+                        <i class="bi bi-search"></i>
+                    </button>
+                    <a href="{% url 'accounts:employee_list' %}" class="btn clear-btn">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="actions-bar">
+    <div class="bulk-actions">
+        <select id="bulkAction" class="form-select bulk-select">
+            <option value="">Bulk Actions</option>
+            <option value="activate">Activate Selected</option>
+            <option value="deactivate">Deactivate Selected</option>
+            <option value="suspend">Suspend Selected</option>
+            <option value="terminate">Terminate Selected</option>
+            <option value="reset_password">Reset Password</option>
+            <option value="unlock_account">Unlock Account</option>
+        </select>
+        <button type="button" id="applyBulkAction" class="btn bulk-btn" disabled>
+            Apply Action
+        </button>
+        <span id="selectedCount" class="text-muted small">0 selected</span>
+    </div>
+    
+    <div class="action-buttons">
+        <a href="{% url 'accounts:employee_create' %}" class="add-employee-btn">
+            <i class="bi bi-person-plus"></i>
+            Add Employee
+        </a>
+        <a href="{% url 'accounts:bulk_upload' %}" class="bulk-upload-btn">
+            <i class="bi bi-upload"></i>
+            Bulk Upload
+        </a>
+        <a href="{% url 'accounts:export_employees' %}?{{ request.GET.urlencode }}" class="export-btn">
+            <i class="bi bi-download"></i>
+            Export
+        </a>
+    </div>
+</div>
+
+<div class="employees-table-card">
+    {% if page_obj %}
+        <div class="table-responsive">
+            <table class="table employees-table">
+                <thead>
+                    <tr>
+                        <th class="checkbox-cell">
+                            <input type="checkbox" id="selectAll" class="form-check-input select-all-checkbox">
+                        </th>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Hire Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee in page_obj %}
+                    <tr>
+                        <td class="checkbox-cell">
+                            <input type="checkbox" class="form-check-input employee-checkbox" 
+                                   value="{{ employee.id }}" data-employee-id="{{ employee.id }}">
+                        </td>
+                        <td>
+                            <div class="employee-info">
+                                <div class="employee-avatar">
+                                    {{ employee.first_name|first|upper }}{{ employee.last_name|first|upper }}
+                                </div>
+                                <div class="employee-details">
+                                    <h6>{{ employee.get_full_name }}</h6>
+                                    <small>{{ employee.employee_code }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if employee.department %}
+                                {{ employee.department.name }}
+                            {% else %}
+                                <span class="text-muted">Not Assigned</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if employee.role %}
+                                {{ employee.role.name }}
+                            {% else %}
+                                <span class="text-muted">Not Assigned</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge {{ employee.status|lower }}">
+                                {{ employee.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if employee.hire_date %}
+                                {{ employee.hire_date|date:"M d, Y" }}
+                            {% else %}
+                                <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="dropdown action-dropdown">
+                                <button class="btn action-btn dropdown-toggle" type="button" 
+                                        data-bs-toggle="dropdown">
+                                    <i class="bi bi-three-dots"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'accounts:employee_detail' employee.pk %}">
+                                            <i class="bi bi-eye me-2"></i>View Details
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'accounts:employee_update' employee.pk %}">
+                                            <i class="bi bi-pencil me-2"></i>Edit
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    {% if employee.status == 'ACTIVE' %}
+                                    <li>
+                                        <a class="dropdown-item text-warning" href="#" 
+                                           onclick="performAction('deactivate', {{ employee.id }})">
+                                            <i class="bi bi-pause me-2"></i>Deactivate
+                                        </a>
+                                    </li>
+                                    {% else %}
+                                    <li>
+                                        <a class="dropdown-item text-success" href="#" 
+                                           onclick="performAction('activate', {{ employee.id }})">
+                                            <i class="bi bi-play me-2"></i>Activate
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    <li>
+                                        <a class="dropdown-item text-info" href="#" 
+                                           onclick="performAction('reset_password', {{ employee.id }})">
+                                            <i class="bi bi-key me-2"></i>Reset Password
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="no-employees">
+                            <i class="bi bi-people"></i>
+                            <h5>No employees found</h5>
+                            <p>Try adjusting your search criteria or add new employees.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="pagination-wrapper">
+    <div class="pagination-info">
+        Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} employees
+    </div>
+    
+    <nav>
+        <ul class="pagination mb-0">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.department %}department={{ request.GET.department }}&{% endif %}{% if request.GET.role %}role={{ request.GET.role }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.department %}department={{ request.GET.department }}&{% endif %}{% if request.GET.role %}role={{ request.GET.role }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}page={{ num }}">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.department %}department={{ request.GET.department }}&{% endif %}{% if request.GET.role %}role={{ request.GET.role }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}page={{ page_obj.next_page_number }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const employeeCheckboxes = document.querySelectorAll('.employee-checkbox');
+    const bulkActionSelect = document.getElementById('bulkAction');
+    const applyBulkActionBtn = document.getElementById('applyBulkAction');
+    const selectedCountSpan = document.getElementById('selectedCount');
+
+    function updateSelectedCount() {
+        const checkedBoxes = document.querySelectorAll('.employee-checkbox:checked');
+        const count = checkedBoxes.length;
+        selectedCountSpan.textContent = `${count} selected`;
+        applyBulkActionBtn.disabled = count === 0 || !bulkActionSelect.value;
+    }
+
+    selectAllCheckbox.addEventListener('change', function() {
+        employeeCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+        updateSelectedCount();
+    });
+
+    employeeCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const allChecked = Array.from(employeeCheckboxes).every(cb => cb.checked);
+            const someChecked = Array.from(employeeCheckboxes).some(cb => cb.checked);
+            
+            selectAllCheckbox.checked = allChecked;
+            selectAllCheckbox.indeterminate = someChecked && !allChecked;
+            updateSelectedCount();
+        });
+    });
+
+    bulkActionSelect.addEventListener('change', updateSelectedCount);
+
+    applyBulkActionBtn.addEventListener('click', function() {
+        const selectedIds = Array.from(document.querySelectorAll('.employee-checkbox:checked'))
+            .map(cb => cb.value);
+        const action = bulkActionSelect.value;
+
+        if (selectedIds.length === 0 || !action) return;
+
+        if (confirm(`Are you sure you want to ${action} ${selectedIds.length} employee(s)?`)) {
+            performBulkAction(selectedIds, action);
+        }
+    });
+
+    window.performAction = function(action, employeeId) {
+        if (confirm(`Are you sure you want to ${action} this employee?`)) {
+            performBulkAction([employeeId], action);
+        }
+    };
+
+    function performBulkAction(userIds, action) {
+        showLoading();
+        
+        fetch('{% url "accounts:bulk_user_action" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                user_ids: userIds,
+                action: action,
+                reason: `Bulk ${action} action performed`
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            alert('An error occurred: ' + error.message);
+        });
+    }
+
+    const searchInput = document.querySelector('input[name="search"]');
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                if (this.value.length >= 2 || this.value.length === 0) {
+                    document.getElementById('searchForm').submit();
+                }
+            }, 500);
+        });
+    }
+});
+</script>
+{% endblock %}
+
