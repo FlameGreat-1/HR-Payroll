@@ -13,7 +13,7 @@
 <div class="dashboard-container">
     <!-- Welcome Section -->
     <div class="dashboard-card">
-        <h2 class="text-gradient">Welcome back, {{ current_user.get_full_name|default:current_user.username }}!</h2>
+        <h2 class="text-gradient">Welcome back, {{ current_user.get_full_name|default:current_user.employee_code }}!</h2>
         <p><strong>{{ current_user.role.display_name|default:"Administrator" }}</strong> | {{ current_user.department.name|default:"System" }}</p>
         <p><strong>Last Login:</strong> {{ current_user.last_login|date:"M d, Y H:i" }}</p>
     </div>
@@ -55,7 +55,13 @@
             <div class="recent-activities">
                 {% for activity in recent_activities %}
                 <div class="activity-item">
-                    <strong>{{ activity.user.get_full_name|default:activity.user.username }}</strong>
+                    <strong>
+                    {% if activity.user %}
+                        {{ activity.user.get_full_name|default:activity.user.employee_code }}
+                    {% else %}
+                        System
+                    {% endif %}
+                    </strong>
                     <span class="activity-action">{{ activity.get_action_display }}</span>
                     <div class="activity-description">{{ activity.description }}</div>
                     <small class="activity-time">{{ activity.timestamp|timesince }} ago</small>

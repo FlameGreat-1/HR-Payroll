@@ -84,7 +84,8 @@ class CustomLoginForm(AuthenticationForm):
                     )
 
                 self.user_cache = authenticate(
-                    self.request, username=username, password=password
+                    self.request, employee_code=username, password=password  
+            
                 )
 
                 if self.user_cache is None:
@@ -125,7 +126,6 @@ class EmployeeRegistrationForm(forms.ModelForm):
     class Meta:
         model = CustomUser
         fields = [
-            "employee_code",
             "first_name",
             "last_name",
             "middle_name",
@@ -140,12 +140,6 @@ class EmployeeRegistrationForm(forms.ModelForm):
             "manager",
         ]
         widgets = {
-            "employee_code": forms.TextInput(
-                attrs={
-                    "class": "form-control",
-                    "placeholder": "Employee Code (e.g., EMP001)",
-                }
-            ),
             "first_name": forms.TextInput(
                 attrs={"class": "form-control", "placeholder": "First Name"}
             ),
@@ -182,14 +176,6 @@ class EmployeeRegistrationForm(forms.ModelForm):
         self.fields["role"].queryset = Role.active.all()
         self.fields["manager"].queryset = User.active.all()
         self.fields["manager"].empty_label = "Select Manager (Optional)"
-
-    def clean_employee_code(self):
-        employee_code = self.cleaned_data.get("employee_code")
-        if employee_code:
-            employee_code = employee_code.upper()
-            if User.objects.filter(employee_code=employee_code).exists():
-                raise ValidationError("Employee code already exists.")
-        return employee_code
 
     def clean_email(self):
         email = self.cleaned_data.get("email")
@@ -257,7 +243,7 @@ class EmployeeRegistrationForm(forms.ModelForm):
             raise ValidationError("Employee cannot be their own manager.")
 
         return cleaned_data
-
+    
     def save(self, commit=True):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data["password1"])
@@ -266,7 +252,6 @@ class EmployeeRegistrationForm(forms.ModelForm):
         if commit:
             user.save()
         return user
-
 class EmployeeUpdateForm(forms.ModelForm):
     class Meta:
         model = CustomUser

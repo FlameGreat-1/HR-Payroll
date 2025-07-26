@@ -288,7 +288,7 @@ class CustomUser(AbstractUser):
     objects = CustomUserManager()
     active = ActiveUserManager()
 
-    USERNAME_FIELD = 'employee_code'
+    USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
 
     class Meta:
@@ -307,6 +307,43 @@ class CustomUser(AbstractUser):
         if self.employee_code:
             return f"{self.employee_code} - {self.get_full_name()}"
         return self.username or f"User {self.id}"
+
+    def generate_employee_code(self):
+        if self.employee_code:
+            return self.employee_code
+        
+        if self.is_superuser or (self.role and self.role.name == 'SUPER_ADMIN'):
+            prefix = 'ADMIN'
+        elif self.role and self.role.name == 'HR_MANAGER':
+            prefix = 'HR'
+        elif self.role and self.role.name == 'HR_ADMIN':
+            prefix = 'HRADMIN'
+        elif self.role and self.role.name == 'DEPARTMENT_MANAGER':
+            prefix = 'DEPTMGR'
+        elif self.role and self.role.name == 'PAYROLL_MANAGER':
+            prefix = 'PAYMGR'
+        elif self.role and self.role.name == 'ACCOUNTANT':
+            prefix = 'ACC'
+        elif self.role and self.role.name == 'AUDITOR':
+            prefix = 'AUD'
+        else:
+            prefix = 'EMP'
+        
+        existing_codes = CustomUser.objects.filter(
+            employee_code__startswith=prefix
+        ).values_list('employee_code', flat=True)
+        
+        numbers = []
+        for code in existing_codes:
+            try:
+                number = int(code.replace(prefix, ''))
+                numbers.append(number)
+            except ValueError:
+                continue
+        
+        next_number = max(numbers) + 1 if numbers else 1
+        
+        return f"{prefix}{next_number:03d}"
 
     def save(self, *args, **kwargs):
         if (not self.pk and 
@@ -327,6 +364,9 @@ class CustomUser(AbstractUser):
             return
         
         self.full_clean()
+        
+        if not self.employee_code and (self.role or self.is_superuser):
+            self.employee_code = self.generate_employee_code()
         
         if self.employee_code:
             self.username = self.employee_code

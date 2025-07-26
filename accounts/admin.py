@@ -84,7 +84,6 @@ class CustomUserAdmin(BaseAdminMixin, BaseUserAdmin):
     ordering = ["employee_code"]
 
     readonly_fields = [
-        "employee_code",
         "created_at",
         "updated_at",
         "last_login",
@@ -155,6 +154,13 @@ class CustomUserAdmin(BaseAdminMixin, BaseUserAdmin):
             {"fields": ("is_active", "is_verified", "must_change_password")},
         ),
         (
+            "Permissions",
+            {
+                "fields": ("is_staff", "is_superuser", "groups", "user_permissions"),
+                "classes": ("collapse",),
+            },
+        ),
+        (
             "Security Information",
             {
                 "fields": (
@@ -181,7 +187,6 @@ class CustomUserAdmin(BaseAdminMixin, BaseUserAdmin):
             "Basic Information",
             {
                 "fields": (
-                    "employee_code",
                     "first_name",
                     "last_name",
                     "middle_name",
@@ -197,6 +202,11 @@ class CustomUserAdmin(BaseAdminMixin, BaseUserAdmin):
             {"fields": ("department", "role", "job_title", "manager", "hire_date")},
         ),
         ("Password", {"fields": ("password1", "password2")}),
+    )
+
+    filter_horizontal = (
+        "groups",
+        "user_permissions",
     )
 
     actions = [
@@ -277,6 +287,10 @@ class CustomUserAdmin(BaseAdminMixin, BaseUserAdmin):
 
     verify_users.short_description = "Verify selected users"
 
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
 
 class DepartmentAdmin(BaseAdminMixin, admin.ModelAdmin):
     list_display = [

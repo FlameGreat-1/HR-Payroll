@@ -808,5 +808,17 @@ select:focus,
 textarea:focus {
     outline: 2px solid var(--primary-start);
     outline-offset: 2px;
+    color: var(--text-dark) !important; 
 }
+
+/* Additional text visibility fixes */
+.form-row input:focus,
+.form-row select:focus,
+.form-row textarea:focus,
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+    color: var(--text-dark) !important;
+}
+
 
