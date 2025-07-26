@@ -1,0 +1,183 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.delete-confirmation {
+    background: var(--text-white);
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    padding: 40px;
+    margin: 20px 0;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.delete-confirmation::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #FF4757 0%, #FF3742 100%);
+}
+
+.delete-confirmation h1 {
+    color: #EF4444;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-bold);
+    font-size: 24px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.delete-confirmation p {
+    font-family: var(--font-family);
+    font-size: 16px;
+    color: var(--text-dark);
+    line-height: 1.6;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.delete-confirmation ul {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    list-style: none;
+}
+
+.delete-confirmation ul li {
+    padding: 8px 0;
+    border-bottom: 1px solid #FECACA;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-dark);
+}
+
+.delete-confirmation ul li:last-child {
+    border-bottom: none;
+}
+
+.delete-confirmation ul li strong {
+    color: #EF4444;
+    font-weight: var(--font-weight-bold);
+}
+
+.delete-confirmation form {
+    text-align: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #E5E7EB;
+}
+
+.delete-confirmation input[type="submit"] {
+    background: linear-gradient(90deg, #FF4757 0%, #FF3742 100%);
+    color: var(--text-white);
+    border: none;
+    border-radius: 8px;
+    padding: 14px 28px;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-semibold);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
+    margin-right: 15px;
+}
+
+.delete-confirmation input[type="submit"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(255, 71, 87, 0.4);
+}
+
+.delete-confirmation .cancel-link {
+    background: var(--dark-charcoal);
+    color: var(--text-white);
+    border: none;
+    border-radius: 8px;
+    padding: 14px 28px;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-semibold);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(43, 43, 43, 0.3);
+}
+
+.delete-confirmation .cancel-link:hover {
+    background: var(--darker-charcoal);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(43, 43, 43, 0.4);
+    color: var(--text-white);
+}
+
+.warning-icon {
+    font-size: 48px;
+    color: #F59E0B;
+    text-align: center;
+    margin-bottom: 20px;
+}
+</style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} delete-confirmation{% endblock %}
+
+{% if not is_popup %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'change' object.pk|admin_urlquote %}">{{ object|truncatewords:"18" }}</a>
+&rsaquo; {% trans 'Delete' %}
+</div>
+{% endblock %}
+{% endif %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="delete-confirmation">
+        <div class="warning-icon">⚠️</div>
+        
+        {% if perms_lacking %}
+            <h1>{% trans "Cannot delete %(name)s" %}</h1>
+            <p>{% trans "You don't have permission to delete this %(name)s." %}</p>
+        {% elif protected %}
+            <h1>{% trans "Cannot delete %(name)s" %}</h1>
+            <p>{% trans "Deleting the %(object_name)s '%(escaped_object)s' would result in deleting related objects, but your account doesn't have permission to delete the following types of objects:" %}</p>
+            <ul>
+            {% for obj in protected %}
+                <li>{{ obj }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <h1>{% trans "Are you sure?" %}</h1>
+            <p>{% blocktrans with object=object %}Are you sure you want to delete the {{ object_name }} "{{ object }}"? All of the following related items will be deleted:{% endblocktrans %}</p>
+            {% include "admin/includes/object_delete_summary.html" %}
+            <h2>{% trans "Objects" %}</h2>
+            <ul>{{ deleted_objects|unordered_list }}</ul>
+            <form method="post">{% csrf_token %}
+                <div>
+                    <input type="hidden" name="post" value="yes">
+                    {% if is_popup %}<input type="hidden" name="{{ is_popup_var }}" value="1">{% endif %}
+                    {% if to_field %}<input type="hidden" name="{{ to_field_var }}" value="{{ to_field }}">{% endif %}
+                    <input type="submit" value="{% trans "Yes, I'm sure" %}">
+                    <a href="#" onclick="history.back(); return false;" class="cancel-link">{% trans "No, take me back" %}</a>
+                </div>
+            </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

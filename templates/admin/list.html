@@ -1,0 +1,224 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block extrahead %}
+    {{ block.super }}
+    {{ media }}
+    {% if action_form %}{% if actions_on_top %}{% admin_actions_js %}{% endif %}{% endif %}
+    {% if action_form or actions_on_bottom %}
+        <script src="{% static "admin/js/actions.js" %}" defer></script>
+    {% endif %}
+    {% if cl.formset %}
+        <link rel="stylesheet" type="text/css" href="{% static "admin/css/forms.css" %}">
+        <script src="{% static 'admin/js/jquery.init.js' %}"></script>
+        {{ cl.formset.media }}
+    {% endif %}
+    {% if cl.formset or action_form %}
+        <script src="{% static 'admin/js/core.js' %}"></script>
+    {% endif %}
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-list{% endblock %}
+
+{% if not is_popup %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; {{ opts.verbose_name_plural|capfirst }}
+</div>
+{% endblock %}
+{% endif %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-card">
+        <div id="content-main">
+            {% block object-tools %}
+                {% if has_add_permission %}
+                <ul class="object-tools">
+                    {% block object-tools-items %}
+                        <li>
+                            <a href="{% url cl.opts|admin_urlname:'add' %}{% if is_popup %}?{{ is_popup }}{% endif %}" class="addlink">
+                                {% blocktrans with cl.opts.verbose_name as name %}Add {{ name }}{% endblocktrans %}
+                            </a>
+                        </li>
+                    {% endblock %}
+                </ul>
+                {% endif %}
+            {% endblock %}
+            
+            {% if cl.formset and cl.formset.errors %}
+                <p class="errornote">
+                {% if cl.formset.total_error_count == 1 %}{% trans "Please correct the error below." %}{% else %}{% trans "Please correct the errors below." %}{% endif %}
+                </p>
+                {{ cl.formset.non_form_errors }}
+            {% endif %}
+            
+            <div class="module filtered" id="changelist">
+                {% block search %}{% search_form cl %}{% endblock %}
+                {% block date_hierarchy %}{% date_hierarchy cl %}{% endblock %}
+
+                <form id="changelist-form" method="post" novalidate>{% csrf_token %}
+                {% if cl.formset %}
+                    <div id="changelist-formset">
+                        {{ cl.formset.management_form }}
+                        {% for form in cl.formset %}
+                            {% if form.non_field_errors %}
+                                <div class="inline-related">
+                                    {{ form.non_field_errors }}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                {% block result_list %}
+                    {% if action_form and actions_on_top and cl.show_admin_actions %}{% admin_actions %}{% endif %}
+                    {% result_list cl %}
+                    {% if action_form and actions_on_bottom and cl.show_admin_actions %}{% admin_actions %}{% endif %}
+                {% endblock %}
+                
+                {% block pagination %}{% pagination cl %}{% endblock %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.object-tools {
+    float: right;
+    clear: both;
+    margin-left: 5px;
+    margin-bottom: 5px;
+    padding-left: 0;
+    list-style: none;
+}
+
+.object-tools li {
+    display: block;
+    float: left;
+    margin-left: 5px;
+}
+
+.object-tools a {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-semibold);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: var(--magenta-glow);
+}
+
+.object-tools a:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--magenta-glow-strong);
+    color: var(--text-white);
+}
+
+.module h2 {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-semibold);
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    padding: 16px 20px;
+    margin: 0;
+    border-radius: 8px 8px 0 0;
+    box-shadow: var(--magenta-glow);
+}
+
+.filtered .module {
+    background: var(--text-white);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(213, 0, 249, 0.1);
+}
+
+#changelist-search {
+    background: #F8F9FA;
+    padding: 15px 20px;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+#changelist-search input[type="text"] {
+    border: 2px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-medium);
+    transition: all 0.3s ease;
+}
+
+#changelist-search input[type="text"]:focus {
+    border-color: var(--primary-start);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(61, 90, 254, 0.1);
+}
+
+#changelist-search input[type="submit"] {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-left: 10px;
+}
+
+#changelist-search input[type="submit"]:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(213, 0, 249, 0.3);
+}
+
+.paginator {
+    text-align: center;
+    padding: 20px;
+    background: #F8F9FA;
+    border-top: 1px solid #E5E7EB;
+}
+
+.paginator a, .paginator .this-page {
+    display: inline-block;
+    padding: 8px 12px;
+    margin: 0 2px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: var(--font-weight-medium);
+    transition: all 0.3s ease;
+}
+
+.paginator a {
+    background: var(--text-white);
+    color: var(--primary-start);
+    border: 1px solid #E5E7EB;
+}
+
+.paginator a:hover {
+    background: var(--primary-start);
+    color: var(--text-white);
+    transform: translateY(-1px);
+}
+
+.paginator .this-page {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    font-weight: var(--font-weight-bold);
+}
+</style>
+{% endblock %}

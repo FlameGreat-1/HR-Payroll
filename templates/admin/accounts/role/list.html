@@ -1,0 +1,266 @@
+{% extends "admin/list.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.role-list .results table thead th {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    font-weight: var(--font-weight-semibold);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 18px 16px;
+    text-align: left;
+    border: none;
+    position: relative;
+}
+
+.role-list .results table tbody td {
+    padding: 16px;
+    font-weight: var(--font-weight-medium);
+    color: var(--text-dark);
+    border: none;
+    vertical-align: middle;
+}
+
+.role-list .role-icon {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-weight: var(--font-weight-bold);
+    font-size: 18px;
+    margin-right: 15px;
+    display: inline-flex;
+}
+
+.role-list .role-info {
+    display: flex;
+    align-items: center;
+}
+
+.role-list .role-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.role-list .role-name {
+    font-weight: var(--font-weight-bold);
+    color: var(--text-dark);
+    font-size: 16px;
+    margin-bottom: 3px;
+}
+
+.role-list .role-description {
+    color: #6B7280;
+    font-size: 13px;
+    font-weight: var(--font-weight-medium);
+    line-height: 1.4;
+}
+
+.role-list .user-count {
+    background: rgba(61, 90, 254, 0.1);
+    color: var(--primary-start);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: var(--font-weight-bold);
+    text-align: center;
+    border: 1px solid rgba(61, 90, 254, 0.2);
+}
+
+.role-list .permission-level {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+.role-list .permission-admin {
+    background: linear-gradient(90deg, #FF4757 0%, #FF3742 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(255, 71, 87, 0.3);
+}
+
+.role-list .permission-manager {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.role-list .permission-employee {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.role-list .permission-viewer {
+    background: linear-gradient(90deg, #6B7280 0%, #4B5563 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+}
+
+.role-list .permissions-count {
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+    display: flex;
+    align-items: center;
+}
+
+.role-list .permissions-count::before {
+    content: '🔐';
+    margin-right: 5px;
+    font-size: 14px;
+}
+
+.role-list .status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+.role-list .status-active {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.role-list .status-inactive {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.role-list .created-date {
+    color: #9CA3AF;
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+}
+
+.role-list .actions-column {
+    text-align: right;
+    width: 120px;
+}
+
+.role-list .action-btn {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 0 2px;
+}
+
+.role-list .action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(213, 0, 249, 0.3);
+    color: var(--text-white);
+}
+
+.role-list .action-btn.edit {
+    background: var(--primary-gradient);
+}
+
+.role-list .action-btn.delete {
+    background: linear-gradient(90deg, #FF4757 0%, #FF3742 100%);
+}
+
+.role-list .role-stats {
+    background: #F8F9FA;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #E5E7EB;
+}
+
+.role-list .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.role-list .stat-item {
+    text-align: center;
+}
+
+.role-list .stat-number {
+    font-size: 24px;
+    font-weight: var(--font-weight-extrabold);
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 5px;
+}
+
+.role-list .stat-label {
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.role-list .permission-preview {
+    background: #F8F9FA;
+    border: 1px solid #E5E7EB;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-top: 5px;
+    font-size: 11px;
+    color: #6B7280;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .role-list .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    
+    .role-list .role-info {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .role-list .role-icon {
+        margin-bottom: 10px;
+    }
+    
+    .role-list .permission-preview {
+        max-width: 150px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} role-list{% endblock %}
+
+{% block content_title %}
+<h1 class="text-gradient">{% trans 'Roles' %}</h1>
+{% endblock %}

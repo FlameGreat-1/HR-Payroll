@@ -1,0 +1,378 @@
+{% extends "admin/list.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.systemconfiguration-list .results table thead th {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    font-weight: var(--font-weight-semibold);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 18px 16px;
+    text-align: left;
+    border: none;
+    position: relative;
+}
+
+.systemconfiguration-list .results table tbody td {
+    padding: 16px;
+    font-weight: var(--font-weight-medium);
+    color: var(--text-dark);
+    border: none;
+    vertical-align: middle;
+}
+
+.systemconfiguration-list .config-icon {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-weight: var(--font-weight-bold);
+    font-size: 18px;
+    margin-right: 15px;
+    display: inline-flex;
+}
+
+.systemconfiguration-list .config-info {
+    display: flex;
+    align-items: center;
+}
+
+.systemconfiguration-list .config-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.systemconfiguration-list .config-key {
+    font-weight: var(--font-weight-bold);
+    color: var(--text-dark);
+    font-size: 15px;
+    margin-bottom: 3px;
+    font-family: 'Courier New', monospace;
+}
+
+.systemconfiguration-list .config-description {
+    color: #6B7280;
+    font-size: 13px;
+    font-weight: var(--font-weight-medium);
+    line-height: 1.4;
+}
+
+.systemconfiguration-list .config-value {
+    background: #F3F4F6;
+    color: #4B5563;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+    font-family: 'Courier New', monospace;
+    border: 1px solid #E5E7EB;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.systemconfiguration-list .config-type-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+.systemconfiguration-list .type-string {
+    background: linear-gradient(90deg, #3B82F6 0%, #2563EB 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.systemconfiguration-list .type-integer {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.systemconfiguration-list .type-boolean {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.systemconfiguration-list .type-json {
+    background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.systemconfiguration-list .category-badge {
+    background: rgba(61, 90, 254, 0.1);
+    color: var(--primary-start);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(61, 90, 254, 0.2);
+}
+
+.systemconfiguration-list .status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+.systemconfiguration-list .status-active {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.systemconfiguration-list .status-inactive {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.systemconfiguration-list .last-modified {
+    color: #9CA3AF;
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+    display: flex;
+    flex-direction: column;
+}
+
+.systemconfiguration-list .modified-date {
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: 2px;
+}
+
+.systemconfiguration-list .modified-time {
+    font-size: 11px;
+    color: #6B7280;
+}
+
+.systemconfiguration-list .actions-column {
+    text-align: right;
+    width: 120px;
+}
+
+.systemconfiguration-list .action-btn {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 0 2px;
+}
+
+.systemconfiguration-list .action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(213, 0, 249, 0.3);
+    color: var(--text-white);
+}
+
+.systemconfiguration-list .action-btn.edit {
+    background: var(--primary-gradient);
+}
+
+.systemconfiguration-list .action-btn.reset {
+    background: linear-gradient(90deg, #FF4757 0%, #FF3742 100%);
+}
+
+.systemconfiguration-list .config-filters {
+    background: #F8F9FA;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #E5E7EB;
+}
+
+.systemconfiguration-list .filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    align-items: end;
+}
+
+.systemconfiguration-list .filter-group label {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.systemconfiguration-list .filter-group select,
+.systemconfiguration-list .filter-group input {
+    width: 100%;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    background: var(--text-white);
+    color: var(--text-dark);
+}
+
+.systemconfiguration-list .config-stats {
+    background: #F8F9FA;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #E5E7EB;
+}
+
+.systemconfiguration-list .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.systemconfiguration-list .stat-item {
+    text-align: center;
+    background: var(--text-white);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
+}
+
+.systemconfiguration-list .stat-number {
+    font-size: 20px;
+    font-weight: var(--font-weight-extrabold);
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 5px;
+}
+
+.systemconfiguration-list .stat-label {
+    color: #6B7280;
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.systemconfiguration-list .security-warning {
+    background: linear-gradient(90deg, #FEF2F2 0%, #FECACA 100%);
+    border: 1px solid #EF4444;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.systemconfiguration-list .security-warning::before {
+    content: '🔒';
+    font-size: 20px;
+    margin-right: 10px;
+}
+
+.systemconfiguration-list .security-warning-text {
+    color: #B91C1C;
+    font-weight: var(--font-weight-semibold);
+    font-size: 13px;
+}
+
+.systemconfiguration-list .config-categories {
+    background: #F8F9FA;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #E5E7EB;
+}
+
+.systemconfiguration-list .category-tabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.systemconfiguration-list .category-tab {
+    background: var(--text-white);
+    border: 1px solid #E5E7EB;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.systemconfiguration-list .category-tab:hover {
+    background: var(--primary-start);
+    color: var(--text-white);
+    border-color: var(--primary-start);
+}
+
+.systemconfiguration-list .category-tab.active {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    border-color: transparent;
+    box-shadow: var(--magenta-glow);
+}
+
+@media (max-width: 768px) {
+    .systemconfiguration-list .filter-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .systemconfiguration-list .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .systemconfiguration-list .config-info {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .systemconfiguration-list .config-icon {
+        margin-bottom: 10px;
+    }
+    
+    .systemconfiguration-list .config-value {
+        max-width: 150px;
+    }
+    
+    .systemconfiguration-list .category-tabs {
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} systemconfiguration-list{% endblock %}
+
+{% block content_title %}
+<h1 class="text-gradient">{% trans 'System Configuration' %}</h1>
+{% endblock %}

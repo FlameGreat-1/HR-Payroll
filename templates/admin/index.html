@@ -1,0 +1,143 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_urls %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="{% static 'admin/css/hr_admin.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Welcome Section -->
+    <div class="dashboard-card">
+        <h2 class="text-gradient">Welcome back, {{ current_user.get_full_name|default:current_user.username }}!</h2>
+        <p><strong>{{ current_user.role.display_name|default:"Administrator" }}</strong> | {{ current_user.department.name|default:"System" }}</p>
+        <p><strong>Last Login:</strong> {{ current_user.last_login|date:"M d, Y H:i" }}</p>
+    </div>
+
+    <!-- HR Statistics Cards -->
+    <div class="stats-grid">
+        <div class="dashboard-card">
+            <div class="stat-number">{{ hr_stats.total_employees }}</div>
+            <div class="stat-label">Total Employees</div>
+        </div>
+        
+        <div class="dashboard-card">
+            <div class="stat-number">{{ hr_stats.new_employees_this_month }}</div>
+            <div class="stat-label">New This Month</div>
+        </div>
+        
+        <div class="dashboard-card">
+            <div class="stat-number">{{ hr_stats.active_sessions }}</div>
+            <div class="stat-label">Active Sessions</div>
+        </div>
+        
+        <div class="dashboard-card">
+            <div class="stat-number">{{ hr_stats.total_departments }}</div>
+            <div class="stat-label">Departments</div>
+        </div>
+    </div>
+
+    <!-- Chart and Activities Grid -->
+    <div class="chart-activities-grid">
+        <!-- Department Overview -->
+        <div class="dashboard-card">
+            <h3 class="text-gradient">Department Overview</h3>
+            <canvas id="departmentChart"></canvas>
+        </div>
+
+        <!-- Recent Activities -->
+        <div class="dashboard-card">
+            <h3 class="text-gradient">Recent Activities</h3>
+            <div class="recent-activities">
+                {% for activity in recent_activities %}
+                <div class="activity-item">
+                    <strong>{{ activity.user.get_full_name|default:activity.user.username }}</strong>
+                    <span class="activity-action">{{ activity.get_action_display }}</span>
+                    <div class="activity-description">{{ activity.description }}</div>
+                    <small class="activity-time">{{ activity.timestamp|timesince }} ago</small>
+                </div>
+                {% empty %}
+                <p>No recent activities.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Default Django Admin Content -->
+{{ block.super }}
+
+<script>
+// Department Chart with Brand Colors
+const ctx = document.getElementById('departmentChart').getContext('2d');
+const departmentChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: [{% for dept in dept_stats %}'{{ dept.name }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            data: [{% for dept in dept_stats %}{{ dept.employee_count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            backgroundColor: [
+                '#3D5AFE',  // Primary brand color
+                '#D500F9',  // Secondary brand color
+                '#10B981',  // Success green
+                '#F59E0B',  // Warning orange
+                '#EF4444',  // Danger red
+                '#8B5CF6',  // Purple
+                '#06B6D4',  // Cyan
+                '#84CC16'   // Lime
+            ],
+            borderWidth: 0,
+            hoverBorderWidth: 2,
+            hoverBorderColor: '#FFFFFF'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 15,
+                    usePointStyle: true,
+                    font: {
+                        family: 'Inter, Roboto, sans-serif',
+                        size: 12,
+                        weight: '500'
+                    }
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(43, 43, 43, 0.9)',
+                titleColor: '#FFFFFF',
+                bodyColor: '#FFFFFF',
+                borderColor: '#3D5AFE',
+                borderWidth: 1,
+                cornerRadius: 8,
+                titleFont: {
+                    family: 'Inter, Roboto, sans-serif',
+                    size: 14,
+                    weight: '600'
+                },
+                bodyFont: {
+                    family: 'Inter, Roboto, sans-serif',
+                    size: 13,
+                    weight: '500'
+                }
+            }
+        },
+        cutout: '60%',
+        animation: {
+            animateRotate: true,
+            animateScale: true,
+            duration: 1000,
+            easing: 'easeOutQuart'
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,283 @@
+{% extends "admin/form.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.department-form .dashboard-card {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.department-form .form-section {
+    background: var(--text-white);
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    padding: 30px;
+    margin: 20px 0;
+    border: 1px solid rgba(213, 0, 249, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.department-form .form-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--primary-gradient);
+}
+
+.department-form .section-title {
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-bold);
+    font-size: 18px;
+    color: var(--text-dark);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #F3F4F6;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.department-form .department-icon-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-weight: var(--font-weight-bold);
+    font-size: 28px;
+    margin-bottom: 20px;
+    box-shadow: var(--magenta-glow);
+}
+
+.department-form .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.department-form .form-grid.single {
+    grid-template-columns: 1fr;
+}
+
+.department-form .form-field {
+    margin-bottom: 20px;
+}
+
+.department-form .form-field label {
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: 13px;
+    margin-bottom: 6px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.department-form .form-field input,
+.department-form .form-field select,
+.department-form .form-field textarea {
+    width: 100%;
+    border: 2px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-medium);
+    font-size: 14px;
+    background: var(--text-white);
+    color: var(--text-dark);
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.department-form .form-field textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.department-form .form-field input:focus,
+.department-form .form-field select:focus,
+.department-form .form-field textarea:focus {
+    border-color: var(--primary-start);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(61, 90, 254, 0.1);
+    background: #FAFBFC;
+}
+
+.department-form .checkbox-field {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.department-form .checkbox-field input[type="checkbox"] {
+    width: auto;
+    margin-right: 10px;
+    transform: scale(1.2);
+}
+
+.department-form .checkbox-field label {
+    margin-bottom: 0;
+    font-size: 14px;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.department-form .help-text {
+    font-size: 12px;
+    color: #6B7280;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.department-form .required-field label::after {
+    content: ' *';
+    color: #EF4444;
+    font-weight: var(--font-weight-bold);
+}
+
+.department-form .manager-selection {
+    background: #F8F9FA;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 10px;
+}
+
+.department-form .manager-preview {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--text-white);
+    border-radius: 6px;
+    border: 1px solid #E5E7EB;
+}
+
+.department-form .manager-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-weight: var(--font-weight-bold);
+    font-size: 16px;
+    margin-right: 12px;
+}
+
+.department-form .manager-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.department-form .manager-name {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+
+.department-form .manager-email {
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+}
+
+.department-form .department-stats {
+    background: #F8F9FA;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.department-form .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    text-align: center;
+}
+
+.department-form .stat-item {
+    background: var(--text-white);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
+}
+
+.department-form .stat-number {
+    font-size: 20px;
+    font-weight: var(--font-weight-extrabold);
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 5px;
+}
+
+.department-form .stat-label {
+    color: #6B7280;
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@media (max-width: 768px) {
+    .department-form .form-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .department-form .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .department-form .manager-preview {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .department-form .manager-avatar {
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} department-form{% endblock %}
+
+{% block content_title %}
+<h1 class="text-gradient">
+    {% if add %}{% trans 'Add Department' %}{% else %}{% trans 'Change Department' %}{% endif %}
+</h1>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container department-form">
+    <div class="form-section">
+        <h2 class="section-title">{% trans 'Department Information' %}</h2>
+        <div class="department-icon-preview">
+            🏢
+        </div>
+        {{ block.super }}
+    </div>
+</div>
+{% endblock %}
+  

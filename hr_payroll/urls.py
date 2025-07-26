@@ -20,14 +20,15 @@ from django.urls import path, include
 from django.shortcuts import redirect
 from django.conf import settings
 from django.conf.urls.static import static
+from accounts.admin_site import hr_admin_site
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
-    path("accounts/", include("accounts.urls")),
-    path("", lambda request: redirect("accounts:login")),  # Redirect root to login
+    path("admin/", hr_admin_site.urls),  
+    path("accounts/", include("accounts.urls")),  
+    path("", lambda request: redirect("/admin/")), 
 ]
 
-# Add debug toolbar URLs in development
+
 if settings.DEBUG:
     import debug_toolbar
 

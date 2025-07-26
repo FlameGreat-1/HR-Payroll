@@ -1,0 +1,489 @@
+{% extends "admin/form.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.systemconfiguration-form .dashboard-card {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.systemconfiguration-form .form-section {
+    background: var(--text-white);
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    padding: 30px;
+    margin: 20px 0;
+    border: 1px solid rgba(213, 0, 249, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.systemconfiguration-form .form-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--primary-gradient);
+}
+
+.systemconfiguration-form .section-title {
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-bold);
+    font-size: 18px;
+    color: var(--text-dark);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #F3F4F6;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.systemconfiguration-form .config-icon-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-weight: var(--font-weight-bold);
+    font-size: 28px;
+    margin-bottom: 20px;
+    box-shadow: var(--magenta-glow);
+}
+
+.systemconfiguration-form .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.systemconfiguration-form .form-grid.single {
+    grid-template-columns: 1fr;
+}
+
+.systemconfiguration-form .form-field {
+    margin-bottom: 20px;
+}
+
+.systemconfiguration-form .form-field label {
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: 13px;
+    margin-bottom: 6px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.systemconfiguration-form .form-field input,
+.systemconfiguration-form .form-field select,
+.systemconfiguration-form .form-field textarea {
+    width: 100%;
+    border: 2px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-medium);
+    font-size: 14px;
+    background: var(--text-white);
+    color: var(--text-dark);
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.systemconfiguration-form .form-field textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.systemconfiguration-form .form-field input:focus,
+.systemconfiguration-form .form-field select:focus,
+.systemconfiguration-form .form-field textarea:focus {
+    border-color: var(--primary-start);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(61, 90, 254, 0.1);
+    background: #FAFBFC;
+}
+
+.systemconfiguration-form .config-key-field {
+    position: relative;
+}
+
+.systemconfiguration-form .config-key-field input {
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.systemconfiguration-form .value-type-selector {
+    background: #F8F9FA;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.systemconfiguration-form .value-types {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.systemconfiguration-form .value-type-option {
+    background: var(--text-white);
+    border: 2px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.systemconfiguration-form .value-type-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.systemconfiguration-form .value-type-option.string {
+    border-color: #3B82F6;
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.systemconfiguration-form .value-type-option.integer {
+    border-color: #10B981;
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.systemconfiguration-form .value-type-option.boolean {
+    border-color: #F59E0B;
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.systemconfiguration-form .value-type-option.json {
+    border-color: #8B5CF6;
+    background: rgba(139, 92, 246, 0.05);
+}
+
+.systemconfiguration-form .value-type-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+
+.systemconfiguration-form .value-type-name {
+    font-weight: var(--font-weight-bold);
+    color: var(--text-dark);
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+.systemconfiguration-form .value-type-desc {
+    color: #6B7280;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.systemconfiguration-form .value-editor {
+    background: #F8F9FA;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.systemconfiguration-form .json-editor {
+    font-family: 'Courier New', monospace;
+    background: #1F2937;
+    color: #F9FAFB;
+    border: none;
+    border-radius: 8px;
+    padding: 16px;
+    min-height: 200px;
+    resize: vertical;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.systemconfiguration-form .boolean-toggle {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.systemconfiguration-form .toggle-option {
+    background: var(--text-white);
+    border: 2px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: var(--font-weight-semibold);
+    text-align: center;
+    flex: 1;
+}
+
+.systemconfiguration-form .toggle-option:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.systemconfiguration-form .toggle-option.true {
+    border-color: #10B981;
+    background: rgba(16, 185, 129, 0.05);
+    color: #059669;
+}
+
+.systemconfiguration-form .toggle-option.false {
+    border-color: #EF4444;
+    background: rgba(239, 68, 68, 0.05);
+    color: #DC2626;
+}
+
+.systemconfiguration-form .category-selector {
+    background: #F8F9FA;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 20px 0;
+}
+
+.systemconfiguration-form .category-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.systemconfiguration-form .category-option {
+    background: var(--text-white);
+    border: 1px solid #E5E7EB;
+    border-radius: 6px;
+    padding: 10px 15px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.systemconfiguration-form .category-option:hover {
+    background: var(--primary-start);
+    color: var(--text-white);
+    border-color: var(--primary-start);
+}
+
+.systemconfiguration-form .category-option.selected {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    border-color: transparent;
+    box-shadow: var(--magenta-glow);
+}
+
+.systemconfiguration-form .security-settings {
+    background: linear-gradient(90deg, #FEF2F2 0%, #FECACA 100%);
+    border: 1px solid #EF4444;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.systemconfiguration-form .security-title {
+    font-weight: var(--font-weight-bold);
+    color: #B91C1C;
+    font-size: 16px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.systemconfiguration-form .security-title::before {
+    content: '🔒';
+    margin-right: 8px;
+    font-size: 20px;
+}
+
+.systemconfiguration-form .security-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.systemconfiguration-form .security-option {
+    display: flex;
+    align-items: center;
+    background: var(--text-white);
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #FECACA;
+}
+
+.systemconfiguration-form .security-option input[type="checkbox"] {
+    width: auto;
+    margin-right: 10px;
+    transform: scale(1.2);
+}
+
+.systemconfiguration-form .security-option label {
+    margin-bottom: 0;
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: normal;
+    color: #B91C1C;
+}
+
+.systemconfiguration-form .config-preview {
+    background: #F8F9FA;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.systemconfiguration-form .preview-title {
+    font-weight: var(--font-weight-bold);
+    color: var(--text-dark);
+    font-size: 16px;
+    margin-bottom: 15px;
+}
+
+.systemconfiguration-form .preview-content {
+    background: #1F2937;
+    color: #F9FAFB;
+    padding: 16px;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-x: auto;
+}
+
+.systemconfiguration-form .help-text {
+    font-size: 12px;
+    color: #6B7280;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.systemconfiguration-form .required-field label::after {
+    content: ' *';
+    color: #EF4444;
+    font-weight: var(--font-weight-bold);
+}
+
+.systemconfiguration-form .readonly-field {
+    background: #F9FAFB;
+    border-color: #D1D5DB;
+    color: #6B7280;
+    cursor: not-allowed;
+}
+
+.systemconfiguration-form .config-actions {
+    background: #F8F9FA;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 20px;
+    text-align: center;
+}
+
+.systemconfiguration-form .reset-btn {
+    background: linear-gradient(90deg, #FF4757 0%, #FF3742 100%);
+    color: var(--text-white);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-weight: var(--font-weight-semibold);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-right: 10px;
+}
+
+.systemconfiguration-form .reset-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(255, 71, 87, 0.3);
+}
+
+.systemconfiguration-form .validate-btn {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: var(--text-white);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-weight: var(--font-weight-semibold);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.systemconfiguration-form .validate-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+@media (max-width: 768px) {
+    .systemconfiguration-form .form-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .systemconfiguration-form .value-types {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .systemconfiguration-form .boolean-toggle {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .systemconfiguration-form .category-options {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .systemconfiguration-form .security-options {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} systemconfiguration-form{% endblock %}
+
+{% block content_title %}
+<h1 class="text-gradient">
+    {% if add %}{% trans 'Add System Configuration' %}{% else %}{% trans 'Change System Configuration' %}{% endif %}
+</h1>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container systemconfiguration-form">
+    <div class="form-section">
+        <h2 class="section-title">{% trans 'Configuration Settings' %}</h2>
+        <div class="config-icon-preview">
+            ⚙️
+        </div>
+        {{ block.super }}
+    </div>
+</div>
+{% endblock %}

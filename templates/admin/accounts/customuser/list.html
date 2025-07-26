@@ -1,0 +1,189 @@
+{% extends "admin/list.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.customuser-list .results table thead th {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    font-weight: var(--font-weight-semibold);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 18px 16px;
+    text-align: left;
+    border: none;
+    position: relative;
+}
+
+.customuser-list .results table tbody td {
+    padding: 16px;
+    font-weight: var(--font-weight-medium);
+    color: var(--text-dark);
+    border: none;
+    vertical-align: middle;
+}
+
+.customuser-list .user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-weight: var(--font-weight-bold);
+    font-size: 16px;
+    margin-right: 12px;
+    display: inline-flex;
+}
+
+.customuser-list .user-info {
+    display: flex;
+    align-items: center;
+}
+
+.customuser-list .user-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.customuser-list .user-name {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: 15px;
+    margin-bottom: 2px;
+}
+
+.customuser-list .user-email {
+    color: #6B7280;
+    font-size: 13px;
+    font-weight: var(--font-weight-medium);
+}
+
+.customuser-list .status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+.customuser-list .status-active {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.customuser-list .status-inactive {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.customuser-list .role-badge {
+    background: rgba(61, 90, 254, 0.1);
+    color: var(--primary-start);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(61, 90, 254, 0.2);
+}
+
+.customuser-list .department-info {
+    color: #6B7280;
+    font-size: 13px;
+    font-weight: var(--font-weight-medium);
+}
+
+.customuser-list .last-login {
+    color: #9CA3AF;
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+}
+
+.customuser-list .actions-column {
+    text-align: right;
+    width: 120px;
+}
+
+.customuser-list .action-btn {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 0 2px;
+}
+
+.customuser-list .action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(213, 0, 249, 0.3);
+    color: var(--text-white);
+}
+
+.customuser-list .action-btn.edit {
+    background: var(--primary-gradient);
+}
+
+.customuser-list .action-btn.delete {
+    background: linear-gradient(90deg, #FF4757 0%, #FF3742 100%);
+}
+
+.customuser-list .search-filters {
+    background: #F8F9FA;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #E5E7EB;
+}
+
+.customuser-list .filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    align-items: end;
+}
+
+.customuser-list .filter-group label {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.customuser-list .filter-group select {
+    width: 100%;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    background: var(--text-white);
+    color: var(--text-dark);
+}
+</style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} customuser-list{% endblock %}
+
+{% block content_title %}
+<h1 class="text-gradient">{% trans 'Custom Users' %}</h1>
+{% endblock %}

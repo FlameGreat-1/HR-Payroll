@@ -1,0 +1,299 @@
+{% extends "admin/list.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.auditlog-list .results table thead th {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    font-weight: var(--font-weight-semibold);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 18px 16px;
+    text-align: left;
+    border: none;
+    position: relative;
+}
+
+.auditlog-list .results table tbody td {
+    padding: 16px;
+    font-weight: var(--font-weight-medium);
+    color: var(--text-dark);
+    border: none;
+    vertical-align: middle;
+}
+
+.auditlog-list .log-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-weight: var(--font-weight-bold);
+    font-size: 16px;
+    margin-right: 12px;
+    display: inline-flex;
+}
+
+.auditlog-list .log-icon.create {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+}
+
+.auditlog-list .log-icon.update {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+}
+
+.auditlog-list .log-icon.delete {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+}
+
+.auditlog-list .log-icon.login {
+    background: linear-gradient(90deg, #3B82F6 0%, #2563EB 100%);
+}
+
+.auditlog-list .log-icon.logout {
+    background: linear-gradient(90deg, #6B7280 0%, #4B5563 100%);
+}
+
+.auditlog-list .log-info {
+    display: flex;
+    align-items: center;
+}
+
+.auditlog-list .log-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.auditlog-list .log-action {
+    font-weight: var(--font-weight-bold);
+    color: var(--text-dark);
+    font-size: 15px;
+    margin-bottom: 3px;
+}
+
+.auditlog-list .log-description {
+    color: #6B7280;
+    font-size: 13px;
+    font-weight: var(--font-weight-medium);
+    line-height: 1.4;
+}
+
+.auditlog-list .user-info {
+    display: flex;
+    align-items: center;
+}
+
+.auditlog-list .user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-weight: var(--font-weight-bold);
+    font-size: 12px;
+    margin-right: 8px;
+}
+
+.auditlog-list .user-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.auditlog-list .user-name {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: 13px;
+    margin-bottom: 1px;
+}
+
+.auditlog-list .user-role {
+    color: #6B7280;
+    font-size: 11px;
+    font-weight: var(--font-weight-medium);
+}
+
+.auditlog-list .timestamp {
+    color: #9CA3AF;
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+    display: flex;
+    flex-direction: column;
+}
+
+.auditlog-list .timestamp-date {
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: 2px;
+}
+
+.auditlog-list .timestamp-time {
+    font-size: 11px;
+    color: #6B7280;
+}
+
+.auditlog-list .ip-address {
+    background: #F3F4F6;
+    color: #4B5563;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: var(--font-weight-medium);
+    font-family: 'Courier New', monospace;
+    border: 1px solid #E5E7EB;
+}
+
+.auditlog-list .action-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+.auditlog-list .action-create {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.auditlog-list .action-update {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.auditlog-list .action-delete {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.auditlog-list .action-login {
+    background: linear-gradient(90deg, #3B82F6 0%, #2563EB 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.auditlog-list .action-logout {
+    background: linear-gradient(90deg, #6B7280 0%, #4B5563 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+}
+
+.auditlog-list .log-filters {
+    background: #F8F9FA;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #E5E7EB;
+}
+
+.auditlog-list .filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    align-items: end;
+}
+
+.auditlog-list .filter-group label {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.auditlog-list .filter-group select,
+.auditlog-list .filter-group input {
+    width: 100%;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    background: var(--text-white);
+    color: var(--text-dark);
+}
+
+.auditlog-list .log-stats {
+    background: #F8F9FA;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #E5E7EB;
+}
+
+.auditlog-list .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.auditlog-list .stat-item {
+    text-align: center;
+    background: var(--text-white);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
+}
+
+.auditlog-list .stat-number {
+    font-size: 20px;
+    font-weight: var(--font-weight-extrabold);
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 5px;
+}
+
+.auditlog-list .stat-label {
+    color: #6B7280;
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@media (max-width: 768px) {
+    .auditlog-list .filter-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .auditlog-list .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .auditlog-list .log-info {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .auditlog-list .log-icon {
+        margin-bottom: 8px;
+    }
+    
+    .auditlog-list .user-info {
+        margin-top: 8px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} auditlog-list{% endblock %}
+
+{% block content_title %}
+<h1 class="text-gradient">{% trans 'Audit Logs' %}</h1>
+{% endblock %}

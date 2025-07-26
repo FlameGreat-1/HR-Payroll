@@ -49,6 +49,8 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault("status", "ACTIVE")
 
         return self.create_user(employee_code, email, password, **extra_fields)
+
+
 class Department(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100, unique=True)
@@ -68,6 +70,8 @@ class Department(models.Model):
         blank=True,
         related_name="sub_departments",
     )
+    budget = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    location = models.CharField(max_length=255, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -82,7 +86,6 @@ class Department(models.Model):
 
     objects = models.Manager()
     active = ActiveManager()
-
     class Meta:
         db_table = "departments"
         ordering = ["name"]
@@ -145,6 +148,11 @@ class Role(models.Model):
     name = models.CharField(max_length=50, choices=ROLE_TYPES, unique=True)
     display_name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
+    level = models.PositiveIntegerField(default=1)
+    can_manage_employees = models.BooleanField(default=False)
+    can_view_all_data = models.BooleanField(default=False)
+    can_approve_leave = models.BooleanField(default=False)
+    can_manage_payroll = models.BooleanField(default=False)
     permissions = models.ManyToManyField(
         Permission, blank=True, related_name="custom_roles"
     )
@@ -481,6 +489,13 @@ class UserSession(models.Model):
     last_activity = models.DateTimeField(auto_now=True)
     logout_time = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    device_type = models.CharField(max_length=50, blank=True, null=True)
+    location = models.CharField(max_length=255, blank=True, null=True)
+    login_time = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(auto_now=True)
+    logout_time = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
 
     class Meta:
         db_table = 'user_sessions'
@@ -562,17 +577,36 @@ class PasswordResetToken(models.Model):
         self.is_used = True
         self.used_at = timezone.now()
         self.save(update_fields=['is_used', 'used_at'])
-
 class AuditLog(models.Model):
     ACTION_TYPES = [
         ('LOGIN', 'User Login'),
         ('LOGOUT', 'User Logout'),
         ('PASSWORD_CHANGE', 'Password Change'),
+        ('PASSWORD_RESET', 'Password Reset'),
         ('PROFILE_UPDATE', 'Profile Update'),
+        ('USER_CREATED', 'User Created'),
+        ('USER_UPDATED', 'User Updated'),
+        ('USER_DELETED', 'User Deleted'),
+        ('DEPARTMENT_CREATED', 'Department Created'),
+        ('ROLE_CREATED', 'Role Created'),
+        ('DATA_EXPORT', 'Data Export'),
+        ('BULK_IMPORT', 'Bulk Import'),
+        ('BULK_ACTION', 'Bulk Action'),
+        ('SYSTEM_SETTINGS_UPDATED', 'System Settings Updated'),
+        ('EMAIL_SETTINGS_UPDATED', 'Email Settings Updated'),
+        ('SETTING_UPDATED', 'Setting Updated'),
+        ('EMAIL_TEST', 'Email Test'),
+        ('BACKUP_CREATED', 'Backup Created'),
+        ('MAINTENANCE_MODE_TOGGLED', 'Maintenance Mode Toggled'),
+        ('CACHE_CLEARED', 'Cache Cleared'),
+        ('DATABASE_OPTIMIZED', 'Database Optimized'),
+        ('SESSION_TERMINATED', 'Session Terminated'),
+        ('ALL_SESSIONS_TERMINATED', 'All Sessions Terminated'),
+        ('REPORT_GENERATED', 'Report Generated'),
+        ('BULK_NOTIFICATION', 'Bulk Notification'),
         ('PERMISSION_CHANGE', 'Permission Change'),
         ('ACCOUNT_LOCK', 'Account Lock'),
         ('ACCOUNT_UNLOCK', 'Account Unlock'),
-        ('DATA_EXPORT', 'Data Export'),
         ('SYSTEM_ACCESS', 'System Access'),
     ]
 
@@ -586,6 +620,9 @@ class AuditLog(models.Model):
     user_agent = models.TextField(blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     additional_data = models.JSONField(default=dict, blank=True)
+    module = models.CharField(max_length=50, blank=True, null=True)
+    object_id = models.CharField(max_length=50, blank=True, null=True)
+    severity = models.CharField(max_length=20, default='INFO')
 
     class Meta:
         db_table = 'audit_logs'

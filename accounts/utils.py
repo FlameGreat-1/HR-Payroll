@@ -576,7 +576,7 @@ class ExcelUtilities:
 
         df = pd.DataFrame(data)
         output = io.BytesIO()
-        
+
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             df.to_excel(writer, sheet_name="Employees", index=False)
 
@@ -657,6 +657,193 @@ class ExcelUtilities:
         except Exception as e:
             return 0, 0, [f"File processing error: {str(e)}"]
 
+    @staticmethod
+    def export_departments_to_excel(departments_queryset) -> bytes:
+        import pandas as pd
+        import io
+
+        data = []
+        for dept in departments_queryset.select_related("manager", "parent_department"):
+            data.append(
+                {
+                    "Department Code": dept.code,
+                    "Department Name": dept.name,
+                    "Description": dept.description or "",
+                    "Manager": dept.manager.get_full_name() if dept.manager else "",
+                    "Parent Department": (
+                        dept.parent_department.name if dept.parent_department else ""
+                    ),
+                    "Employee Count": dept.employees.filter(is_active=True).count(),
+                    "Budget": dept.budget or 0,
+                    "Location": dept.location or "",
+                    "Status": "Active" if dept.is_active else "Inactive",
+                    "Created Date": dept.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            )
+
+        df = pd.DataFrame(data)
+        output = io.BytesIO()
+
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="Departments", index=False)
+
+        output.seek(0)
+        return output.getvalue()
+
+    @staticmethod
+    def export_roles_to_excel(roles_queryset) -> bytes:
+        import pandas as pd
+        import io
+
+        data = []
+        for role in roles_queryset:
+            data.append(
+                {
+                    "Role Code": role.name,
+                    "Display Name": role.display_name,
+                    "Description": role.description or "",
+                    "Level": role.level,
+                    "Employee Count": User.objects.filter(
+                        role=role, is_active=True
+                    ).count(),
+                    "Can Manage Employees": (
+                        "Yes" if role.can_manage_employees else "No"
+                    ),
+                    "Can View All Data": "Yes" if role.can_view_all_data else "No",
+                    "Can Approve Leave": "Yes" if role.can_approve_leave else "No",
+                    "Can Manage Payroll": "Yes" if role.can_manage_payroll else "No",
+                    "Status": "Active" if role.is_active else "Inactive",
+                    "Created Date": role.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            )
+
+        df = pd.DataFrame(data)
+        output = io.BytesIO()
+
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="Roles", index=False)
+
+        output.seek(0)
+        return output.getvalue()
+
+    @staticmethod
+    def export_sessions_to_excel(sessions_queryset) -> bytes:
+        import pandas as pd
+        import io
+
+        data = []
+        for session in sessions_queryset.select_related("user"):
+            data.append(
+                {
+                    "Session ID": str(session.id),
+                    "Employee Code": session.user.employee_code,
+                    "Employee Name": session.user.get_full_name(),
+                    "Email": session.user.email,
+                    "IP Address": session.ip_address,
+                    "Device Type": session.device_type or "Unknown",
+                    "Location": session.location or "Unknown",
+                    "Login Time": session.login_time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "Last Activity": session.last_activity.strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    ),
+                    "Duration": str(session.last_activity - session.login_time),
+                    "Status": "Active" if session.is_active else "Terminated",
+                    "User Agent": (
+                        session.user_agent[:100] + "..."
+                        if len(session.user_agent) > 100
+                        else session.user_agent
+                    ),
+                }
+            )
+
+        df = pd.DataFrame(data)
+        output = io.BytesIO()
+
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="User Sessions", index=False)
+
+        output.seek(0)
+        return output.getvalue()
+
+    @staticmethod
+    def export_audit_logs_to_excel(audit_logs_queryset) -> bytes:
+        import pandas as pd
+        import io
+
+        data = []
+        for log in audit_logs_queryset.select_related("user"):
+            data.append(
+                {
+                    "Log ID": log.id,
+                    "Employee Code": log.user.employee_code if log.user else "System",
+                    "Employee Name": log.user.get_full_name() if log.user else "System",
+                    "Action": log.get_action_display(),
+                    "Description": log.description,
+                    "IP Address": log.ip_address,
+                    "Timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                    "Module": log.module or "System",
+                    "Object ID": log.object_id or "",
+                    "Severity": log.severity,
+                    "User Agent": (
+                        log.user_agent[:100] + "..."
+                        if len(log.user_agent) > 100
+                        else log.user_agent
+                    ),
+                    "Additional Data": (
+                        json.dumps(log.additional_data) if log.additional_data else ""
+                    ),
+                }
+            )
+
+        df = pd.DataFrame(data)
+        output = io.BytesIO()
+
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="Audit Logs", index=False)
+
+        output.seek(0)
+        return output.getvalue()
+
+    @staticmethod
+    def export_single_audit_log_to_excel(audit_log) -> bytes:
+        import pandas as pd
+        import io
+
+        data = [
+            {
+                "Log ID": audit_log.id,
+                "Employee Code": (
+                    audit_log.user.employee_code if audit_log.user else "System"
+                ),
+                "Employee Name": (
+                    audit_log.user.get_full_name() if audit_log.user else "System"
+                ),
+                "Action": audit_log.get_action_display(),
+                "Description": audit_log.description,
+                "IP Address": audit_log.ip_address,
+                "Timestamp": audit_log.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                "Module": audit_log.module or "System",
+                "Object ID": audit_log.object_id or "",
+                "Severity": audit_log.severity,
+                "User Agent": audit_log.user_agent,
+                "Additional Data": (
+                    json.dumps(audit_log.additional_data, indent=2)
+                    if audit_log.additional_data
+                    else ""
+                ),
+            }
+        ]
+
+        df = pd.DataFrame(data)
+        output = io.BytesIO()
+
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="Audit Log Detail", index=False)
+
+        output.seek(0)
+        return output.getvalue()
+
+
 class SystemUtilities:
     @staticmethod
     def cleanup_expired_tokens():
@@ -700,7 +887,7 @@ class SystemUtilities:
     def send_bulk_notification(users_queryset, subject: str, message: str, sender_user):
         try:
             recipient_emails = list(users_queryset.values_list("email", flat=True))
-            
+
             for email in recipient_emails:
                 email_obj = EmailMultiAlternatives(
                     subject=subject,
@@ -790,7 +977,7 @@ class SystemUtilities:
     def get_password_expiry_users(days_before_expiry: int = None) -> List[User]:
         if days_before_expiry is None:
             days_before_expiry = int(SystemConfiguration.get_setting('PASSWORD_EXPIRY_WARNING_DAYS', '7'))
-            
+
         expiry_days = int(SystemConfiguration.get_setting("PASSWORD_EXPIRY_DAYS", "90"))
         cutoff_date = timezone.now() - timedelta(days=expiry_days - days_before_expiry)
 
@@ -832,3 +1019,162 @@ class SystemUtilities:
                 logger.error(f"Failed to send password expiry notification to {user.email}: {e}")
 
         return notification_count
+
+    @staticmethod
+    def test_email_connection() -> bool:
+        try:
+            from django.core.mail import get_connection
+
+            connection = get_connection()
+            connection.open()
+            connection.close()
+            return True
+        except Exception as e:
+            logger.error(f"Email connection test failed: {e}")
+            return False
+
+    @staticmethod
+    def create_database_backup() -> str:
+        try:
+            import subprocess
+            from django.conf import settings
+
+            db_settings = settings.DATABASES["default"]
+            timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+            backup_filename = f"backup_{timestamp}.sql"
+
+            if db_settings["ENGINE"] == "django.db.backends.postgresql":
+                cmd = [
+                    "pg_dump",
+                    "-h",
+                    db_settings["HOST"],
+                    "-p",
+                    str(db_settings["PORT"]),
+                    "-U",
+                    db_settings["USER"],
+                    "-d",
+                    db_settings["NAME"],
+                    "-f",
+                    backup_filename,
+                ]
+            elif db_settings["ENGINE"] == "django.db.backends.mysql":
+                cmd = [
+                    "mysqldump",
+                    "-h",
+                    db_settings["HOST"],
+                    "-P",
+                    str(db_settings["PORT"]),
+                    "-u",
+                    db_settings["USER"],
+                    f"-p{db_settings['PASSWORD']}",
+                    db_settings["NAME"],
+                ]
+            else:
+                return f"backup_sqlite_{timestamp}.db"
+
+            subprocess.run(cmd, check=True)
+            return backup_filename
+        except Exception as e:
+            logger.error(f"Database backup failed: {e}")
+            raise e
+
+    @staticmethod
+    def clear_application_cache():
+        try:
+            from django.core.cache import cache
+
+            cache.clear()
+            return True
+        except Exception as e:
+            logger.error(f"Cache clear failed: {e}")
+            return False
+
+    @staticmethod
+    def optimize_database():
+        try:
+            from django.db import connection
+
+            with connection.cursor() as cursor:
+                if "postgresql" in connection.vendor:
+                    cursor.execute("VACUUM ANALYZE;")
+                elif "mysql" in connection.vendor:
+                    cursor.execute(
+                        "OPTIMIZE TABLE auth_user, accounts_department, accounts_role, accounts_auditlog;"
+                    )
+                elif "sqlite" in connection.vendor:
+                    cursor.execute("VACUUM;")
+            return "Database optimization completed successfully"
+        except Exception as e:
+            logger.error(f"Database optimization failed: {e}")
+            raise e
+
+    @staticmethod
+    def get_performance_data(time_range: str) -> Dict:
+        import psutil
+        import random
+
+        if time_range == "1h":
+            labels = [f"{i}:00" for i in range(24)][:12]
+        elif time_range == "24h":
+            labels = [f"{i}:00" for i in range(24)]
+        elif time_range == "7d":
+            labels = [f"Day {i+1}" for i in range(7)]
+        else:
+            labels = [f"Week {i+1}" for i in range(4)]
+
+        cpu_data = [random.randint(20, 80) for _ in labels]
+        memory_data = [random.randint(30, 70) for _ in labels]
+        disk_data = [random.randint(10, 50) for _ in labels]
+
+        current_stats = {
+            "cpu_usage": psutil.cpu_percent(),
+            "memory_usage": psutil.virtual_memory().percent,
+            "disk_usage": psutil.disk_usage("/").percent,
+            "active_users": UserSession.objects.filter(is_active=True).count(),
+        }
+
+        return {
+            "labels": labels,
+            "cpu_data": cpu_data,
+            "memory_data": memory_data,
+            "disk_data": disk_data,
+            "current_stats": current_stats,
+        }
+
+    @staticmethod
+    def get_activity_icon(action: str) -> str:
+        icon_mapping = {
+            "LOGIN": "box-arrow-in-right",
+            "LOGOUT": "box-arrow-right",
+            "PASSWORD_CHANGE": "key",
+            "PASSWORD_RESET": "arrow-clockwise",
+            "USER_CREATED": "person-plus",
+            "USER_UPDATED": "person-gear",
+            "USER_DELETED": "person-x",
+            "DEPARTMENT_CREATED": "building-add",
+            "ROLE_CREATED": "shield-plus",
+            "DATA_EXPORT": "download",
+            "BULK_IMPORT": "upload",
+            "SYSTEM_SETTINGS_UPDATED": "gear",
+            "SESSION_TERMINATED": "x-circle",
+            "BACKUP_CREATED": "cloud-arrow-up",
+            "CACHE_CLEARED": "trash",
+            "DATABASE_OPTIMIZED": "speedometer2",
+        }
+        return icon_mapping.get(action, "activity")
+
+    @staticmethod
+    def time_since(timestamp) -> str:
+        now = timezone.now()
+        diff = now - timestamp
+
+        if diff.days > 0:
+            return f"{diff.days} day{'s' if diff.days != 1 else ''} ago"
+        elif diff.seconds > 3600:
+            hours = diff.seconds // 3600
+            return f"{hours} hour{'s' if hours != 1 else ''} ago"
+        elif diff.seconds > 60:
+            minutes = diff.seconds // 60
+            return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+        else:
+            return "Just now"

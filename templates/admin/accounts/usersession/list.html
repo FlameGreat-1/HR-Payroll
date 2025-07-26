@@ -1,0 +1,341 @@
+{% extends "admin/list.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.usersession-list .results table thead th {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    font-weight: var(--font-weight-semibold);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 18px 16px;
+    text-align: left;
+    border: none;
+    position: relative;
+}
+
+.usersession-list .results table tbody td {
+    padding: 16px;
+    font-weight: var(--font-weight-medium);
+    color: var(--text-dark);
+    border: none;
+    vertical-align: middle;
+}
+
+.usersession-list .session-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-weight: var(--font-weight-bold);
+    font-size: 16px;
+    margin-right: 12px;
+    display: inline-flex;
+}
+
+.usersession-list .session-info {
+    display: flex;
+    align-items: center;
+}
+
+.usersession-list .session-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.usersession-list .session-id {
+    font-weight: var(--font-weight-bold);
+    color: var(--text-dark);
+    font-size: 13px;
+    margin-bottom: 3px;
+    font-family: 'Courier New', monospace;
+}
+
+.usersession-list .session-device {
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+    line-height: 1.4;
+}
+
+.usersession-list .user-info {
+    display: flex;
+    align-items: center;
+}
+
+.usersession-list .user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-weight: var(--font-weight-bold);
+    font-size: 12px;
+    margin-right: 8px;
+}
+
+.usersession-list .user-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.usersession-list .user-name {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: 13px;
+    margin-bottom: 1px;
+}
+
+.usersession-list .user-email {
+    color: #6B7280;
+    font-size: 11px;
+    font-weight: var(--font-weight-medium);
+}
+
+.usersession-list .ip-address {
+    background: #F3F4F6;
+    color: #4B5563;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: var(--font-weight-medium);
+    font-family: 'Courier New', monospace;
+    border: 1px solid #E5E7EB;
+}
+
+.usersession-list .device-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.usersession-list .device-name {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: 13px;
+    margin-bottom: 2px;
+}
+
+.usersession-list .device-os {
+    color: #6B7280;
+    font-size: 11px;
+    font-weight: var(--font-weight-medium);
+}
+
+.usersession-list .browser-badge {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.usersession-list .status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+.usersession-list .status-active {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.usersession-list .status-expired {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.usersession-list .status-inactive {
+    background: linear-gradient(90deg, #6B7280 0%, #4B5563 100%);
+    color: var(--text-white);
+    box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+}
+
+.usersession-list .timestamp {
+    color: #9CA3AF;
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+    display: flex;
+    flex-direction: column;
+}
+
+.usersession-list .timestamp-date {
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: 2px;
+}
+
+.usersession-list .timestamp-time {
+    font-size: 11px;
+    color: #6B7280;
+}
+
+.usersession-list .duration-badge {
+    background: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: var(--font-weight-bold);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.usersession-list .actions-column {
+    text-align: right;
+    width: 120px;
+}
+
+.usersession-list .action-btn {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 0 2px;
+}
+
+.usersession-list .action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(213, 0, 249, 0.3);
+    color: var(--text-white);
+}
+
+.usersession-list .action-btn.terminate {
+    background: linear-gradient(90deg, #FF4757 0%, #FF3742 100%);
+}
+
+.usersession-list .session-filters {
+    background: #F8F9FA;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #E5E7EB;
+}
+
+.usersession-list .filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    align-items: end;
+}
+
+.usersession-list .filter-group label {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.usersession-list .filter-group select,
+.usersession-list .filter-group input {
+    width: 100%;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    background: var(--text-white);
+    color: var(--text-dark);
+}
+
+.usersession-list .session-stats {
+    background: #F8F9FA;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #E5E7EB;
+}
+
+.usersession-list .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.usersession-list .stat-item {
+    text-align: center;
+    background: var(--text-white);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
+}
+
+.usersession-list .stat-number {
+    font-size: 20px;
+    font-weight: var(--font-weight-extrabold);
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 5px;
+}
+
+.usersession-list .stat-label {
+    color: #6B7280;
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@media (max-width: 768px) {
+    .usersession-list .filter-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .usersession-list .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .usersession-list .session-info {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .usersession-list .session-icon {
+        margin-bottom: 8px;
+    }
+    
+    .usersession-list .user-info {
+        margin-top: 8px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} usersession-list{% endblock %}
+
+{% block content_title %}
+<h1 class="text-gradient">{% trans 'User Sessions' %}</h1>
+{% endblock %}
