@@ -1,0 +1,588 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_urls %}
+
+{% block title %}Contract Renewal - {{ site_title|default:"Django site admin" }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='employees' %}">Employees</a>
+    &rsaquo; <a href="{% url 'admin:employees_contract_changelist' %}">Contracts</a>
+    &rsaquo; Renew Contract
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="contract-renewal-container">
+    <div class="page-header">
+        <h1>Contract Renewal</h1>
+        <div class="employee-info">
+            <strong>{{ contract.employee.get_full_name }}</strong>
+            <span class="employee-id">{{ contract.employee.employee_profile.employee_id }}</span>
+        </div>
+    </div>
+
+    <div class="current-contract-info">
+        <h2>Current Contract Details</h2>
+        <div class="contract-grid">
+            <div class="info-item">
+                <label>Contract Number:</label>
+                <span>{{ contract.contract_number }}</span>
+            </div>
+            <div class="info-item">
+                <label>Contract Type:</label>
+                <span>{{ contract.get_contract_type_display }}</span>
+            </div>
+            <div class="info-item">
+                <label>Start Date:</label>
+                <span>{{ contract.start_date|date:"M d, Y" }}</span>
+            </div>
+            <div class="info-item">
+                <label>End Date:</label>
+                <span>{{ contract.end_date|date:"M d, Y" }}</span>
+            </div>
+            <div class="info-item">
+                <label>Current Salary:</label>
+                <span>${{ contract.basic_salary|floatformat:0 }}</span>
+            </div>
+            <div class="info-item">
+                <label>Status:</label>
+                <span class="status-badge status-{{ contract.status|lower }}">
+                    {{ contract.get_status_display }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" class="renewal-form">
+        {% csrf_token %}
+        
+        <div class="form-section">
+            <h2>New Contract Details</h2>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="contract_type">Contract Type:</label>
+                    <select name="contract_type" id="contract_type" required>
+                        {% for value, label in contract_type_choices %}
+                        <option value="{{ value }}" {% if value == contract.contract_type %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="duration_months">Duration (Months):</label>
+                    <input type="number" name="duration_months" id="duration_months" 
+                           min="1" max="60" value="12" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="start_date">New Start Date:</label>
+                    <input type="date" name="start_date" id="start_date" 
+                           value="{{ contract.end_date|date:'Y-m-d' }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="end_date">New End Date:</label>
+                    <input type="date" name="end_date" id="end_date" readonly>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="basic_salary">Basic Salary:</label>
+                    <input type="number" name="basic_salary" id="basic_salary" 
+                           step="100" min="0" value="{{ contract.basic_salary }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="salary_change">Salary Change:</label>
+                    <select name="salary_change_type" id="salary_change_type" onchange="toggleSalaryChange()">
+                        <option value="none">No Change</option>
+                        <option value="percentage">Percentage Increase</option>
+                        <option value="fixed">Fixed Amount Increase</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-row" id="salary_change_row" style="display: none;">
+                <div class="form-group">
+                    <label for="salary_change_value">Change Value:</label>
+                    <input type="number" name="salary_change_value" id="salary_change_value" 
+                           step="0.1" min="0" placeholder="Enter value">
+                </div>
+                
+                <div class="form-group">
+                    <label>New Calculated Salary:</label>
+                    <span id="calculated_salary" class="calculated-value">${{ contract.basic_salary|floatformat:0 }}</span>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="probation_period">Probation Period (Days):</label>
+                    <input type="number" name="probation_period" id="probation_period" 
+                           min="0" max="365" value="{{ contract.probation_period|default:0 }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="notice_period">Notice Period (Days):</label>
+                    <input type="number" name="notice_period" id="notice_period" 
+                           min="0" max="365" value="{{ contract.notice_period|default:30 }}">
+                </div>
+            </div>
+            
+            <div class="form-group full-width">
+                <label for="terms_conditions">Terms & Conditions:</label>
+                <textarea name="terms_conditions" id="terms_conditions" rows="4" 
+                          placeholder="Enter any specific terms and conditions for this renewal...">{{ contract.terms_conditions }}</textarea>
+            </div>
+            
+            <div class="form-group full-width">
+                <label for="renewal_notes">Renewal Notes:</label>
+                <textarea name="renewal_notes" id="renewal_notes" rows="3" 
+                          placeholder="Add notes about this contract renewal..."></textarea>
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h2>Renewal Options</h2>
+            
+            <div class="checkbox-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="send_notification" checked>
+                    Send renewal notification to employee
+                </label>
+            </div>
+            
+            <div class="checkbox-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="update_employee_profile" checked>
+                    Update employee profile with new contract details
+                </label>
+            </div>
+            
+            <div class="checkbox-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="archive_old_contract" checked>
+                    Archive the current contract
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{% url 'admin:employees_contract_changelist' %}" class="cancel-btn">Cancel</a>
+            <button type="button" class="preview-btn" onclick="previewRenewal()">Preview</button>
+            <button type="submit" class="renew-btn">Renew Contract</button>
+        </div>
+    </form>
+</div>
+
+<div class="preview-modal" id="previewModal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Contract Renewal Preview</h3>
+            <button type="button" class="close-btn" onclick="closePreview()">&times;</button>
+        </div>
+        <div class="modal-body" id="previewContent"></div>
+        <div class="modal-actions">
+            <button type="button" class="cancel-btn" onclick="closePreview()">Close</button>
+            <button type="button" class="confirm-btn" onclick="confirmRenewal()">Confirm Renewal</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.contract-renewal-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #ddd;
+}
+
+.page-header h1 {
+    margin: 0;
+    color: #333;
+}
+
+.employee-info {
+    text-align: right;
+}
+
+.employee-info strong {
+    display: block;
+    font-size: 16px;
+    color: #333;
+}
+
+.employee-id {
+    font-size: 12px;
+    color: #666;
+    font-family: monospace;
+}
+
+.current-contract-info {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 5px;
+    margin-bottom: 25px;
+}
+
+.current-contract-info h2 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+    font-size: 18px;
+}
+
+.contract-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.info-item label {
+    font-weight: 600;
+    color: #555;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.info-item span {
+    color: #333;
+    font-weight: 500;
+}
+
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.status-active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-expired {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.form-section {
+    background: white;
+    padding: 20px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+}
+
+.form-section h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 18px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+}
+
+.form-group input, .form-group select, .form-group textarea {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none;
+    border-color: #007cba;
+    box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.1);
+}
+
+.calculated-value {
+    font-weight: bold;
+    color: #28a745;
+    font-size: 16px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.checkbox-group {
+    margin-bottom: 15px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin: 0;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 20px 0;
+    border-top: 1px solid #ddd;
+}
+
+.cancel-btn, .preview-btn, .renew-btn {
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.cancel-btn {
+    background: #6c757d;
+    color: white;
+}
+
+.preview-btn {
+    background: #17a2b8;
+    color: white;
+}
+
+.renew-btn {
+    background: #28a745;
+    color: white;
+}
+
+.cancel-btn:hover, .preview-btn:hover, .renew-btn:hover {
+    opacity: 0.9;
+    color: white;
+}
+
+.preview-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-actions {
+    padding: 15px 20px;
+    border-top: 1px solid #ddd;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.confirm-btn {
+    background: #28a745;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .employee-info {
+        text-align: left;
+    }
+    
+    .contract-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+}
+</style>
+
+<script>
+function calculateEndDate() {
+    const startDate = document.getElementById('start_date').value;
+    const duration = document.getElementById('duration_months').value;
+    
+    if (startDate && duration) {
+        const start = new Date(startDate);
+        const end = new Date(start.setMonth(start.getMonth() + parseInt(duration)));
+        document.getElementById('end_date').value = end.toISOString().split('T')[0];
+    }
+}
+
+function toggleSalaryChange() {
+    const changeType = document.getElementById('salary_change_type').value;
+    const changeRow = document.getElementById('salary_change_row');
+    
+    if (changeType === 'none') {
+        changeRow.style.display = 'none';
+        updateCalculatedSalary();
+    } else {
+        changeRow.style.display = 'block';
+        document.getElementById('salary_change_value').placeholder = 
+            changeType === 'percentage' ? 'Enter percentage (e.g., 10)' : 'Enter amount (e.g., 5000)';
+    }
+}
+
+function updateCalculatedSalary() {
+    const currentSalary = parseFloat(document.getElementById('basic_salary').value) || 0;
+    const changeType = document.getElementById('salary_change_type').value;
+    const changeValue = parseFloat(document.getElementById('salary_change_value').value) || 0;
+    
+    let newSalary = currentSalary;
+    
+    if (changeType === 'percentage') {
+        newSalary = currentSalary * (1 + changeValue / 100);
+    } else if (changeType === 'fixed') {
+        newSalary = currentSalary + changeValue;
+    }
+    
+    document.getElementById('calculated_salary').textContent = '$' + newSalary.toLocaleString();
+    document.getElementById('basic_salary').value = newSalary;
+}
+
+function previewRenewal() {
+    const formData = new FormData(document.querySelector('.renewal-form'));
+    const preview = generatePreviewContent(formData);
+    document.getElementById('previewContent').innerHTML = preview;
+    document.getElementById('previewModal').style.display = 'flex';
+}
+
+function generatePreviewContent(formData) {
+    return `
+        <div class="preview-section">
+            <h4>New Contract Summary</h4>
+            <div class="preview-grid">
+                <div><strong>Contract Type:</strong> ${formData.get('contract_type')}</div>
+                <div><strong>Duration:</strong> ${formData.get('duration_months')} months</div>
+                <div><strong>Start Date:</strong> ${formData.get('start_date')}</div>
+                <div><strong>End Date:</strong> ${formData.get('end_date')}</div>
+                <div><strong>Basic Salary:</strong> $${parseFloat(formData.get('basic_salary')).toLocaleString()}</div>
+                <div><strong>Probation:</strong> ${formData.get('probation_period')} days</div>
+            </div>
+        </div>
+    `;
+}
+
+function closePreview() {
+    document.getElementById('previewModal').style.display = 'none';
+}
+
+function confirmRenewal() {
+    document.querySelector('.renewal-form').submit();
+}
+
+document.getElementById('start_date').addEventListener('change', calculateEndDate);
+document.getElementById('duration_months').addEventListener('change', calculateEndDate);
+document.getElementById('salary_change_value').addEventListener('input', updateCalculatedSalary);
+
+calculateEndDate();
+</script>
+{% endblock %}

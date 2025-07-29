@@ -1,0 +1,574 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block extrahead %}
+    {{ block.super }}
+    {{ media }}
+    {% comment %}admin_actions_js removed - Django 4.2 compatibility{% endcomment %}
+    {% if action_form or actions_on_bottom %}
+        <script src="{% static "admin/js/actions.js" %}" defer></script>
+    {% endif %}
+    {% if cl.formset %}
+        <link rel="stylesheet" type="text/css" href="{% static "admin/css/forms.css" %}">
+        <script src="{% static 'admin/js/jquery.init.js' %}"></script>
+        {{ cl.formset.media }}
+    {% endif %}
+    {% if cl.formset or action_form %}
+        <script src="{% static 'admin/js/core.js' %}"></script>
+    {% endif %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-list{% endblock %}
+
+{% if not is_popup %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; {{ opts.verbose_name_plural|capfirst }}
+</div>
+{% endblock %}
+{% endif %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-card">
+        <div id="content-main">
+            {% block object-tools %}
+                {% if has_add_permission %}
+                <ul class="object-tools">
+                    {% block object-tools-items %}
+                        <li>
+                            <a href="{% url cl.opts|admin_urlname:'add' %}{% if is_popup %}?{{ is_popup }}{% endif %}" class="addlink">
+                                {% blocktrans with cl.opts.verbose_name as name %}Add {{ name }}{% endblocktrans %}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'admin:employees_employeeprofile_bulk_import' %}" class="importlink">
+                                Import Employees
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'admin:employees_employeeprofile_export' %}" class="exportlink">
+                                Export to CSV
+                            </a>
+                        </li>
+                    {% endblock %}
+                </ul>
+                {% endif %}
+            {% endblock %}
+
+            <div class="employee-stats-summary">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">{{ total_employees|default:0 }}</div>
+                        <div class="stat-label">Total Employees</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ active_employees|default:0 }}</div>
+                        <div class="stat-label">Active</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ on_probation|default:0 }}</div>
+                        <div class="stat-label">On Probation</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ probation_ending_soon|default:0 }}</div>
+                        <div class="stat-label">Probation Ending</div>
+                    </div>
+                </div>
+            </div>
+            
+            {% if cl.formset and cl.formset.errors %}
+                <p class="errornote">
+                {% if cl.formset.total_error_count == 1 %}{% trans "Please correct the error below." %}{% else %}{% trans "Please correct the errors below." %}{% endif %}
+                </p>
+                {{ cl.formset.non_form_errors }}
+            {% endif %}
+            
+            <div class="module filtered" id="changelist">
+                {% block search %}{% search_form cl %}{% endblock %}
+                {% block date_hierarchy %}{% date_hierarchy cl %}{% endblock %}
+
+                <form id="changelist-form" method="post" novalidate>{% csrf_token %}
+                {% if cl.formset %}
+                    <div id="changelist-formset">
+                        {{ cl.formset.management_form }}
+                        {% for form in cl.formset %}
+                            {% if form.non_field_errors %}
+                                <div class="inline-related">
+                                    {{ form.non_field_errors }}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                {% block result_list %}
+                    {% if action_form and actions_on_top and cl.show_admin_actions %}{% admin_actions %}{% endif %}
+                    
+                    <div class="results">
+                        <table id="result_list">
+                            <thead>
+                                <tr>
+                                    {% if action_form %}<th scope="col" class="action-checkbox-column"><input type="checkbox" id="action-toggle"></th>{% endif %}
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Employee ID</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Full Name</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Department</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Employment Status</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Grade Level</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Basic Salary</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Years of Service</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Probation Status</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Status</div>
+                                    </th>
+                                    <th scope="col" class="nowrap">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for result in cl.result_list %}
+                                <tr class="{% cycle 'row1' 'row2' %}">
+                                    {% if action_form %}
+                                    <td class="action-checkbox">
+                                        <input type="checkbox" name="_selected_action" value="{{ result.pk }}" class="action-select">
+                                    </td>
+                                    {% endif %}
+                                    <td class="nowrap">
+                                        <strong>{{ result.employee_id }}</strong>
+                                    </td>
+                                    <td class="nowrap">
+                                        <a href="{% url opts|admin_urlname:'change' result.pk|admin_urlquote %}" class="employee-name-link">
+                                            {{ result.user.get_full_name }}
+                                        </a>
+                                        <div class="employee-email">{{ result.user.email }}</div>
+                                    </td>
+                                    <td>
+                                        {% if result.user.department %}
+                                            <span class="department-badge">{{ result.user.department.name }}</span>
+                                        {% else %}
+                                            <span class="no-department">No Department</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if result.employment_status == 'PROBATION' %}
+                                            <span class="status-probation">{{ result.get_employment_status_display }}</span>
+                                        {% elif result.employment_status == 'CONFIRMED' %}
+                                            <span class="status-confirmed">{{ result.get_employment_status_display }}</span>
+                                        {% elif result.employment_status == 'CONTRACT' %}
+                                            <span class="status-contract">{{ result.get_employment_status_display }}</span>
+                                        {% elif result.employment_status == 'TERMINATED' %}
+                                            <span class="status-inactive">{{ result.get_employment_status_display }}</span>
+                                        {% else %}
+                                            <span class="status-suspended">{{ result.get_employment_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="grade-level-badge">{{ result.get_grade_level_display }}</span>
+                                    </td>
+                                    <td class="nowrap">
+                                        <span class="salary-amount">${{ result.basic_salary|floatformat:2 }}</span>
+                                    </td>
+                                    <td class="nowrap">
+                                        <span class="service-years">{{ result.years_of_service }} years</span>
+                                    </td>
+                                    <td>
+                                        {% if result.employment_status == 'PROBATION' %}
+                                            {% if result.is_on_probation %}
+                                                {% with days_left=result.probation_end_date|timeuntil %}
+                                                    {% if result.probation_end_date|timeuntil|slice:":1" == "0" %}
+                                                        <span class="probation-ending-soon">Ending Soon</span>
+                                                    {% else %}
+                                                        <span class="probation-active">{{ days_left|slice:":10" }} left</span>
+                                                    {% endif %}
+                                                {% endwith %}
+                                            {% else %}
+                                                <span class="probation-expired">Expired</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="probation-confirmed">Confirmed</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if result.is_active %}
+                                            <span class="status-active">Active</span>
+                                        {% else %}
+                                            <span class="status-inactive">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="nowrap">
+                                        <div class="action-buttons">
+                                            <a href="{% url opts|admin_urlname:'change' result.pk|admin_urlquote %}" class="btn-edit" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url opts|admin_urlname:'history' result.pk|admin_urlquote %}" class="btn-history" title="History">
+                                                <i class="fas fa-history"></i>
+                                            </a>
+                                            {% if result.employment_status == 'PROBATION' %}
+                                            <a href="{% url 'admin:employees_employeeprofile_confirm' result.pk %}" class="btn-confirm" title="Confirm Employee">
+                                                <i class="fas fa-check"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="10" class="no-results">
+                                        <div class="no-results-message">
+                                            <i class="fas fa-users"></i>
+                                            <h3>No employees found</h3>
+                                            <p>Try adjusting your search criteria or add a new employee.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if action_form and actions_on_bottom and cl.show_admin_actions %}{% admin_actions %}{% endif %}
+                {% endblock %}
+                
+                {% block pagination %}{% pagination cl %}{% endblock %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.employee-stats-summary {
+    margin: 20px 0 30px 0;
+    padding: 20px;
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(213, 0, 249, 0.3);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.stat-number {
+    font-size: 2.5em;
+    font-weight: 800;
+    color: #FFFFFF;
+    margin-bottom: 8px;
+    font-family: 'Inter', 'Roboto', sans-serif;
+}
+
+.stat-label {
+    color: #F1F1F1;
+    font-size: 0.9em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.employee-name-link {
+    color: #3D5AFE;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.employee-name-link:hover {
+    color: #D500F9;
+    text-decoration: underline;
+}
+
+.employee-email {
+    font-size: 12px;
+    color: #6B7280;
+    margin-top: 2px;
+}
+
+.department-badge {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    color: #FFFFFF;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.no-department {
+    color: #9CA3AF;
+    font-style: italic;
+    font-size: 12px;
+}
+
+.status-probation {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    color: #FFFFFF;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.status-confirmed {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: #FFFFFF;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.status-contract {
+    background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%);
+    color: #FFFFFF;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.status-inactive {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.status-suspended {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    color: #FFFFFF;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.grade-level-badge {
+    background: #2B2B2B;
+    color: #FFFFFF;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.salary-amount {
+    font-weight: 700;
+    color: #10B981;
+    font-size: 14px;
+}
+
+.service-years {
+    font-weight: 600;
+    color: #6B7280;
+    font-size: 13px;
+}
+
+.probation-ending-soon {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.probation-active {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    color: #FFFFFF;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.probation-expired {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.probation-confirmed {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: #FFFFFF;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-edit, .btn-history, .btn-confirm {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 8px;
+    text-decoration: none;
+    font-size: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(213, 0, 249, 0.3);
+}
+
+.btn-edit:hover, .btn-history:hover, .btn-confirm:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(213, 0, 249, 0.4);
+    color: #FFFFFF;
+}
+
+.btn-confirm {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+
+.btn-confirm:hover {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.no-results {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.no-results-message i {
+    font-size: 48px;
+    color: #D1D5DB;
+    margin-bottom: 16px;
+}
+
+.no-results-message h3 {
+    color: #374151;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.no-results-message p {
+    color: #6B7280;
+    font-size: 14px;
+}
+
+.importlink, .exportlink {
+    background: #2B2B2B !important;
+    color: #FFFFFF !important;
+}
+
+.importlink:hover, .exportlink:hover {
+    background: #1E1E1E !important;
+    color: #FFFFFF !important;
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    
+    .stat-number {
+        font-size: 2em;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .results table {
+        font-size: 12px;
+    }
+    
+    .results table th,
+    .results table td {
+        padding: 8px 4px;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const actionToggle = document.getElementById('action-toggle');
+    const actionSelects = document.querySelectorAll('.action-select');
+    
+    if (actionToggle) {
+        actionToggle.addEventListener('change', function() {
+            actionSelects.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+    }
+    
+    actionSelects.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const checkedCount = document.querySelectorAll('.action-select:checked').length;
+            actionToggle.checked = checkedCount === actionSelects.length;
+            actionToggle.indeterminate = checkedCount > 0 && checkedCount < actionSelects.length;
+        });
+    });
+});
+</script>
+{% endblock %}
+

@@ -23,9 +23,10 @@ from django.conf.urls.static import static
 from accounts.admin_site import hr_admin_site
 
 urlpatterns = [
-    path("admin/", hr_admin_site.urls),  
-    path("accounts/", include("accounts.urls")),  
-    path("", lambda request: redirect("/admin/")), 
+    path("admin/", hr_admin_site.urls),
+    path("accounts/", include("accounts.urls")),
+    path("employees/", include("employees.urls")),  
+    path("", lambda request: redirect("/admin/")),
 ]
 
 

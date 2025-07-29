@@ -1,0 +1,687 @@
+{% load i18n static %}
+
+<div class="employee-stats-widget">
+    <div class="widget-header">
+        <h3><i class="fas fa-users"></i> Employee Statistics</h3>
+        <div class="widget-actions">
+            <a href="{% url 'admin:employees_employeeprofile_changelist' %}" class="view-all-btn">
+                <i class="fas fa-external-link-alt"></i> View All
+            </a>
+            <button class="refresh-btn" onclick="refreshEmployeeStats()">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="widget-content">
+        <div class="stats-overview">
+            <div class="stat-item">
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-details">
+                    <div class="stat-number">{{ total_employees|default:0 }}</div>
+                    <div class="stat-label">Total Employees</div>
+                    <div class="stat-change">
+                        {% if employee_growth >= 0 %}
+                            <span class="positive">+{{ employee_growth }}%</span>
+                        {% else %}
+                            <span class="negative">{{ employee_growth }}%</span>
+                        {% endif %}
+                        <small>this month</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-item">
+                <div class="stat-icon active">
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <div class="stat-details">
+                    <div class="stat-number">{{ active_employees|default:0 }}</div>
+                    <div class="stat-label">Active</div>
+                    <div class="stat-percentage">{{ active_percentage|floatformat:1 }}% of total</div>
+                </div>
+            </div>
+            
+            <div class="stat-item">
+                <div class="stat-icon probation">
+                    <i class="fas fa-user-clock"></i>
+                </div>
+                <div class="stat-details">
+                    <div class="stat-number">{{ on_probation|default:0 }}</div>
+                    <div class="stat-label">On Probation</div>
+                    <div class="stat-percentage">{{ probation_percentage|floatformat:1 }}% of total</div>
+                </div>
+            </div>
+            
+            <div class="stat-item">
+                <div class="stat-icon confirmed">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <div class="stat-details">
+                    <div class="stat-number">{{ confirmed_employees|default:0 }}</div>
+                    <div class="stat-label">Confirmed</div>
+                    <div class="stat-percentage">{{ confirmed_percentage|floatformat:1 }}% of total</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="department-breakdown">
+            <h4>Department Breakdown</h4>
+            <div class="department-list">
+                {% for dept in department_stats %}
+                <div class="department-item">
+                    <div class="department-info">
+                        <span class="department-name">{{ dept.name }}</span>
+                        <span class="department-count">{{ dept.employee_count }} employees</span>
+                    </div>
+                    <div class="department-bar">
+                        <div class="bar-fill" style="width: {{ dept.percentage }}%"></div>
+                    </div>
+                    <span class="department-percentage">{{ dept.percentage|floatformat:1 }}%</span>
+                </div>
+                {% empty %}
+                <div class="no-departments">
+                    <i class="fas fa-building"></i>
+                    <p>No departments found</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="employment-status-chart">
+            <h4>Employment Status Distribution</h4>
+            <div class="chart-container">
+                <canvas id="employmentStatusChart" width="300" height="200"></canvas>
+            </div>
+            <div class="chart-legend">
+                <div class="legend-item">
+                    <span class="legend-color probation"></span>
+                    <span class="legend-label">Probation ({{ on_probation|default:0 }})</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color confirmed"></span>
+                    <span class="legend-label">Confirmed ({{ confirmed_employees|default:0 }})</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color contract"></span>
+                    <span class="legend-label">Contract ({{ contract_employees|default:0 }})</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color inactive"></span>
+                    <span class="legend-label">Inactive ({{ inactive_employees|default:0 }})</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="recent-hires">
+            <h4>Recent Hires (Last 30 Days)</h4>
+            <div class="hires-list">
+                {% for hire in recent_hires %}
+                <div class="hire-item">
+                    <div class="hire-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="hire-info">
+                        <div class="hire-name">{{ hire.user.get_full_name }}</div>
+                        <div class="hire-details">
+                            <span class="hire-department">{{ hire.user.department.name|default:"No Department" }}</span>
+                            <span class="separator">•</span>
+                            <span class="hire-date">{{ hire.user.hire_date|date:"M d" }}</span>
+                        </div>
+                    </div>
+                    <div class="hire-status">
+                        {% if hire.employment_status == 'PROBATION' %}
+                            <span class="status-probation">Probation</span>
+                        {% elif hire.employment_status == 'CONFIRMED' %}
+                            <span class="status-confirmed">Confirmed</span>
+                        {% else %}
+                            <span class="status-contract">Contract</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-recent-hires">
+                    <i class="fas fa-user-plus"></i>
+                    <p>No recent hires in the last 30 days</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="probation-alerts">
+            <h4>Probation Ending Soon</h4>
+            <div class="alerts-list">
+                {% for employee in probation_ending_soon %}
+                <div class="alert-item">
+                    <div class="alert-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="alert-info">
+                        <div class="alert-name">{{ employee.user.get_full_name }}</div>
+                        <div class="alert-details">
+                            <span class="alert-department">{{ employee.user.department.name|default:"No Department" }}</span>
+                            <span class="separator">•</span>
+                            <span class="alert-date">Ends {{ employee.probation_end_date|date:"M d, Y" }}</span>
+                        </div>
+                    </div>
+                    <div class="alert-action">
+                        <a href="{% url 'admin:employees_employeeprofile_confirm' employee.pk %}" class="confirm-btn">
+                            <i class="fas fa-check"></i> Confirm
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-alerts">
+                    <i class="fas fa-check-circle"></i>
+                    <p>No probation periods ending soon</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+    .employee-stats-widget {
+        background: #FFFFFF;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(213, 0, 249, 0.1);
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    
+    .widget-header {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .widget-header h3 {
+        color: #FFFFFF;
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .widget-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .view-all-btn, .refresh-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: #FFFFFF;
+        padding: 6px 12px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .view-all-btn:hover, .refresh-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        color: #FFFFFF;
+    }
+    
+    .widget-content {
+        padding: 20px;
+    }
+    
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: #F8F9FA;
+        border-radius: 8px;
+        border: 1px solid #E5E7EB;
+    }
+    
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        color: #FFFFFF;
+        font-size: 20px;
+    }
+    
+    .stat-icon.active {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    }
+    
+    .stat-icon.probation {
+        background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    }
+    
+    .stat-icon.confirmed {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    }
+    
+    .stat-details {
+        flex: 1;
+    }
+    
+    .stat-number {
+        font-size: 24px;
+        font-weight: 800;
+        color: #2B2B2B;
+        margin-bottom: 4px;
+        font-family: 'Inter', 'Roboto', sans-serif;
+    }
+    
+    .stat-label {
+        font-size: 12px;
+        color: #6B7280;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+    
+    .stat-change {
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .stat-change .positive {
+        color: #10B981;
+        font-weight: 600;
+    }
+    
+    .stat-change .negative {
+        color: #EF4444;
+        font-weight: 600;
+    }
+    
+    .stat-percentage {
+        font-size: 11px;
+        color: #6B7280;
+        font-weight: 500;
+    }
+    
+    .department-breakdown, .employment-status-chart, .recent-hires, .probation-alerts {
+        margin-bottom: 24px;
+    }
+    
+    .department-breakdown h4, .employment-status-chart h4, .recent-hires h4, .probation-alerts h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #2B2B2B;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .department-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .department-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+    }
+    
+    .department-info {
+        flex: 1;
+        min-width: 120px;
+    }
+    
+    .department-name {
+        font-weight: 600;
+        color: #2B2B2B;
+        font-size: 13px;
+        display: block;
+    }
+    
+    .department-count {
+        font-size: 11px;
+        color: #6B7280;
+    }
+    
+    .department-bar {
+        flex: 2;
+        height: 8px;
+        background: #E5E7EB;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        transition: width 0.3s ease;
+    }
+    
+    .department-percentage {
+        font-size: 12px;
+        font-weight: 600;
+        color: #6B7280;
+        min-width: 40px;
+        text-align: right;
+    }
+    
+    .chart-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 16px;
+    }
+    
+    .chart-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: center;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .legend-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+    
+    .legend-color.probation {
+        background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    }
+    
+    .legend-color.confirmed {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    }
+    
+    .legend-color.contract {
+        background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%);
+    }
+    
+    .legend-color.inactive {
+        background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    }
+    
+    .legend-label {
+        font-size: 11px;
+        color: #6B7280;
+        font-weight: 500;
+    }
+    
+    .hires-list, .alerts-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .hire-item, .alert-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px;
+        background: #F8F9FA;
+        border-radius: 6px;
+        border: 1px solid #E5E7EB;
+    }
+    
+    .hire-avatar, .alert-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+    }
+    
+    .hire-avatar {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        color: #FFFFFF;
+    }
+    
+    .alert-icon {
+        background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+        color: #FFFFFF;
+    }
+    
+    .hire-info, .alert-info {
+        flex: 1;
+    }
+    
+    .hire-name, .alert-name {
+        font-weight: 600;
+        color: #2B2B2B;
+        font-size: 13px;
+        margin-bottom: 2px;
+    }
+    
+    .hire-details, .alert-details {
+        font-size: 11px;
+        color: #6B7280;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .separator {
+        color: #D1D5DB;
+    }
+    
+    .hire-status {
+        display: flex;
+        align-items: center;
+    }
+    
+    .status-probation {
+        background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+        color: #FFFFFF;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .status-confirmed {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+        color: #FFFFFF;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .status-contract {
+        background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%);
+        color: #FFFFFF;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .confirm-btn {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+        color: #FFFFFF;
+        padding: 4px 8px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .confirm-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        color: #FFFFFF;
+    }
+    
+    .no-departments, .no-recent-hires, .no-alerts {
+        text-align: center;
+        padding: 20px;
+        color: #6B7280;
+    }
+    
+    .no-departments i, .no-recent-hires i, .no-alerts i {
+        font-size: 24px;
+        margin-bottom: 8px;
+        color: #D1D5DB;
+    }
+    
+    @media (max-width: 768px) {
+        .stats-overview {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .stat-item {
+            padding: 12px;
+        }
+        
+        .stat-number {
+            font-size: 20px;
+        }
+        
+        .department-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        
+        .department-bar {
+            width: 100%;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .stats-overview {
+            grid-template-columns: 1fr;
+        }
+        
+        .widget-content {
+            padding: 16px;
+        }
+        
+        .chart-legend {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+    </style>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initEmploymentStatusChart();
+    });
+    
+    function initEmploymentStatusChart() {
+        const ctx = document.getElementById('employmentStatusChart');
+        if (!ctx) return;
+        
+        const data = {
+            labels: ['Probation', 'Confirmed', 'Contract', 'Inactive'],
+            datasets: [{
+                data: [
+                    {{ on_probation|default:0 }},
+                    {{ confirmed_employees|default:0 }},
+                    {{ contract_employees|default:0 }},
+                    {{ inactive_employees|default:0 }}
+                ],
+                backgroundColor: [
+                    '#F59E0B',
+                    '#10B981',
+                    '#8B5CF6',
+                    '#EF4444'
+                ],
+                borderWidth: 0
+            }]
+        };
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+    }
+    
+    function refreshEmployeeStats() {
+        const refreshBtn = document.querySelector('.refresh-btn');
+        const icon = refreshBtn.querySelector('i');
+        
+        icon.classList.add('fa-spin');
+        refreshBtn.disabled = true;
+        
+        fetch('/admin/employees/dashboard/refresh-stats/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error refreshing stats:', error);
+            })
+            .finally(() => {
+                icon.classList.remove('fa-spin');
+                refreshBtn.disabled = false;
+            });
+    }
+    
+    const departmentBars = document.querySelectorAll('.bar-fill');
+    departmentBars.forEach((bar, index) => {
+        setTimeout(() => {
+            bar.style.width = bar.style.width;
+        }, index * 100);
+    });
+    </script>
+    

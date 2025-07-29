@@ -1,0 +1,785 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block extrahead %}{{ block.super }}
+<script src="{% static 'admin/js/core.js' %}"></script>
+{{ media }}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+{% endblock %}
+
+{% block extrajs %}{{ block.super }}
+<script src="{% static 'admin/js/admin/RelatedObjectLookups.js' %}"></script>
+<script src="{% static 'admin/js/actions.js' %}"></script>
+<script src="{% static 'admin/js/urlify.js' %}"></script>
+<script src="{% static 'admin/js/prepopulate.js' %}"></script>
+<script src="{% static 'admin/js/vendor/xregexp/xregexp.js' %}"></script>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-form{% endblock %}
+
+{% if not is_popup %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; {% if add %}{% blocktrans with name=opts.verbose_name %}Add {{ name }}{% endblocktrans %}{% else %}{{ original|truncatewords:"18" }}{% endif %}
+</div>
+{% endblock %}
+{% endif %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-card">
+        <div id="content-main">
+            {% block object-tools %}
+            {% if change %}{% if not is_popup %}
+              <ul class="object-tools">
+                {% block object-tools-items %}
+                  <li>
+                      <a href="{% url opts|admin_urlname:'history' original.pk|admin_urlquote %}" class="historylink">{% trans "History" %}</a>
+                  </li>
+                  {% if has_absolute_url %}
+                      <li><a href="{{ absolute_url }}" class="viewsitelink">{% trans "View on site" %}</a></li>
+                  {% endif %}
+                  {% if not original.is_verified %}
+                  <li>
+                      <a href="{% url 'admin:employees_education_verify' original.pk %}" class="verifylink">Verify Education</a>
+                  </li>
+                  {% endif %}
+                  {% if original.certificate_file %}
+                  <li>
+                      <a href="{{ original.certificate_file.url }}" target="_blank" class="downloadlink">Download Certificate</a>
+                  </li>
+                  {% endif %}
+                {% endblock %}
+              </ul>
+            {% endif %}{% endif %}
+            {% endblock %}
+
+            {% if not add %}
+            <div class="education-record-header">
+                <div class="record-info">
+                    <div class="record-icon">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <div class="record-details">
+                        <h2 class="education-title">{{ original.qualification }}</h2>
+                        <div class="education-meta">
+                            <span class="employee-name">{{ original.employee.get_full_name }}</span>
+                            <span class="separator">•</span>
+                            <span class="institution">{{ original.institution }}</span>
+                            <span class="separator">•</span>
+                            <span class="education-level-badge">{{ original.get_education_level_display }}</span>
+                        </div>
+                        <div class="verification-info">
+                            {% if original.is_verified %}
+                                <span class="verified-status">
+                                    <i class="fas fa-check-circle"></i> Verified by {{ original.verified_by.get_full_name }} on {{ original.verification_date|date:"M d, Y" }}
+                                </span>
+                            {% else %}
+                                <span class="unverified-status">
+                                    <i class="fas fa-clock"></i> Pending verification
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <form {% if has_file_field %}enctype="multipart/form-data" {% endif %}action="{{ form_url }}" method="post" id="{{ opts.model_name }}_form" novalidate>{% csrf_token %}{% block form_top %}{% endblock %}
+            <div>
+            {% if is_popup %}<input type="hidden" name="{{ is_popup_var }}" value="1">{% endif %}
+            {% if to_field %}<input type="hidden" name="{{ to_field_var }}" value="{{ to_field }}">{% endif %}
+            {% if save_on_top %}{% block submit_buttons_top %}{% submit_row %}{% endblock %}{% endif %}
+            {% if errors %}
+                <p class="errornote">
+                {% if errors|length == 1 %}{% trans "Please correct the error below." %}{% else %}{% trans "Please correct the errors below." %}{% endif %}
+                </p>
+                {{ adminform.form.non_field_errors }}
+            {% endif %}
+
+            <div class="form-sections">
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-user"></i> Employee Information</h3>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_employee">Employee:</label>
+                                {{ adminform.form.employee }}
+                                {% if adminform.form.employee.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.employee.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                                <div class="field-help">Select the employee for this education record</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-graduation-cap"></i> Education Details</h3>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_education_level">Education Level:</label>
+                                {{ adminform.form.education_level }}
+                                {% if adminform.form.education_level.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.education_level.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_qualification">Qualification/Degree:</label>
+                                {{ adminform.form.qualification }}
+                                {% if adminform.form.qualification.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.qualification.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                                <div class="field-help">e.g., Bachelor of Science, Master of Arts, etc.</div>
+                            </div>
+                            <div class="form-field">
+                                <label for="id_field_of_study">Field of Study:</label>
+                                {{ adminform.form.field_of_study }}
+                                {% if adminform.form.field_of_study.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.field_of_study.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                                <div class="field-help">e.g., Computer Science, Business Administration, etc.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-university"></i> Institution Information</h3>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_institution">Institution Name:</label>
+                                {{ adminform.form.institution }}
+                                {% if adminform.form.institution.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.institution.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_location">Location:</label>
+                                {{ adminform.form.location }}
+                                {% if adminform.form.location.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.location.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                                <div class="field-help">City, State/Province, Country</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-calendar"></i> Timeline & Performance</h3>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_start_year">Start Year:</label>
+                                {{ adminform.form.start_year }}
+                                {% if adminform.form.start_year.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.start_year.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_completion_year">Completion Year:</label>
+                                {{ adminform.form.completion_year }}
+                                {% if adminform.form.completion_year.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.completion_year.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                                <div class="field-help">Leave blank if currently studying</div>
+                            </div>
+                            <div class="form-field">
+                                <label for="id_grade_gpa">Grade/GPA:</label>
+                                {{ adminform.form.grade_gpa }}
+                                {% if adminform.form.grade_gpa.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.grade_gpa.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                                <div class="field-help">e.g., 3.8/4.0, First Class, 85%, etc.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-file-upload"></i> Certificate & Documentation</h3>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_certificate_file">Certificate File:</label>
+                                {{ adminform.form.certificate_file }}
+                                {% if adminform.form.certificate_file.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.certificate_file.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                                <div class="field-help">Upload PDF, JPG, or PNG files (Max 5MB)</div>
+                                {% if original.certificate_file %}
+                                    <div class="current-file">
+                                        <i class="fas fa-file-pdf"></i>
+                                        <a href="{{ original.certificate_file.url }}" target="_blank">{{ original.certificate_file.name }}</a>
+                                        <span class="file-size">({{ original.certificate_file.size|filesizeformat }})</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-check-circle"></i> Verification Status</h3>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_is_verified">Verified:</label>
+                                {{ adminform.form.is_verified }}
+                                {% if adminform.form.is_verified.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.is_verified.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field verification-fields" style="display: none;">
+                                <label for="id_verified_by">Verified By:</label>
+                                {{ adminform.form.verified_by }}
+                                {% if adminform.form.verified_by.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.verified_by.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field verification-fields" style="display: none;">
+                                <label for="id_verification_date">Verification Date:</label>
+                                {{ adminform.form.verification_date }}
+                                {% if adminform.form.verification_date.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.verification_date.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_verification_notes">Verification Notes:</label>
+                                {{ adminform.form.verification_notes }}
+                                {% if adminform.form.verification_notes.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.verification_notes.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                                <div class="field-help">Additional notes about the verification process</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-cog"></i> System Information</h3>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_is_active">Active Status:</label>
+                                {{ adminform.form.is_active }}
+                                {% if adminform.form.is_active.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.is_active.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if not add %}
+                        <div class="system-info">
+                            <div class="info-row">
+                                <span class="info-label">Created:</span>
+                                <span class="info-value">{{ original.created_at|date:"M d, Y H:i" }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Last Updated:</span>
+                                <span class="info-value">{{ original.updated_at|date:"M d, Y H:i" }}</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% block submit_buttons_bottom %}{% submit_row %}{% endblock %}
+
+            {% block admin_change_form_document_ready %}
+                <script id="django-admin-form-add-constants"
+                        src="{% static 'admin/js/change_form.js' %}"
+                        {% if adminform and add %}
+                            data-model-name="{{ opts.model_name }}"
+                        {% endif %}
+                        async>
+                </script>
+            {% endblock %}
+
+            {% prepopulated_fields_js %}
+
+            </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.education-record-header {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 30px;
+    box-shadow: 0 6px 20px rgba(213, 0, 249, 0.3);
+}
+
+.record-info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.record-icon i {
+    font-size: 64px;
+    color: #FFFFFF;
+}
+
+.education-title {
+    color: #FFFFFF;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    font-family: 'Inter', 'Roboto', sans-serif;
+}
+
+.education-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.employee-name {
+    color: #F1F1F1;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.institution {
+    color: #F1F1F1;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.separator {
+    color: #E0E0E0;
+    font-weight: 300;
+}
+
+.education-level-badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: #FFFFFF;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.verification-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.verified-status {
+    color: #10B981;
+    font-weight: 600;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.unverified-status {
+    color: #F59E0B;
+    font-weight: 600;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.form-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.form-section {
+    background: #FFFFFF;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(213, 0, 249, 0.1);
+    overflow: hidden;
+}
+
+.section-header {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.section-header h3 {
+    color: #FFFFFF;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.section-content {
+    padding: 24px;
+}
+
+.form-row-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.form-row-grid:last-child {
+    margin-bottom: 0;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-field label {
+    font-family: 'Inter', 'Roboto', sans-serif;
+    font-weight: 600;
+    color: #2B2B2B;
+    font-size: 14px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-field input, .form-field select, .form-field textarea {
+    width: 100%;
+    border: 2px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: 'Inter', 'Roboto', sans-serif;
+    font-weight: 500;
+    font-size: 15px;
+    background: #FFFFFF;
+    color: #2B2B2B;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.form-field input:focus, .form-field select:focus, .form-field textarea:focus {
+    border-color: #3D5AFE;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(61, 90, 254, 0.1);
+    background: #FAFBFC;
+}
+
+.field-help {
+    font-size: 12px;
+    color: #6B7280;
+    margin-top: 4px;
+    font-style: italic;
+}
+
+.current-file {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #F3F4F6;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.current-file i {
+    color: #EF4444;
+}
+
+.current-file a {
+    color: #3D5AFE;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.current-file a:hover {
+    text-decoration: underline;
+}
+
+.file-size {
+    color: #6B7280;
+    font-size: 11px;
+}
+
+.system-info {
+    margin-top: 20px;
+    padding: 16px;
+    background: #F8F9FA;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.info-label {
+    font-weight: 600;
+    color: #374151;
+    font-size: 13px;
+}
+
+.info-value {
+    color: #6B7280;
+    font-size: 13px;
+}
+
+.verifylink {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%) !important;
+    color: #FFFFFF !important;
+}
+
+.verifylink:hover {
+    background: linear-gradient(90deg, #059669 0%, #047857 100%) !important;
+    color: #FFFFFF !important;
+}
+
+.downloadlink {
+    background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%) !important;
+    color: #FFFFFF !important;
+}
+
+.downloadlink:hover {
+    background: linear-gradient(90deg, #7C3AED 0%, #6D28D9 100%) !important;
+    color: #FFFFFF !important;
+}
+
+@media (max-width: 768px) {
+    .record-info {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+    }
+    
+    .education-title {
+        font-size: 24px;
+    }
+    
+    .education-meta {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .form-row-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .section-content {
+        padding: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .education-record-header {
+        padding: 16px;
+    }
+    
+    .record-icon i {
+        font-size: 48px;
+    }
+    
+    .education-title {
+        font-size: 20px;
+    }
+    
+    .section-header {
+        padding: 12px 16px;
+    }
+    
+    .section-content {
+        padding: 12px;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const isVerifiedField = document.getElementById('id_is_verified');
+    const verificationFields = document.querySelectorAll('.verification-fields');
+    const verifiedByField = document.getElementById('id_verified_by');
+    const verificationDateField = document.getElementById('id_verification_date');
+    
+    function toggleVerificationFields() {
+        if (isVerifiedField) {
+            const isVerified = isVerifiedField.checked;
+            verificationFields.forEach(field => {
+                field.style.display = isVerified ? 'flex' : 'none';
+            });
+            
+            if (isVerified && verificationDateField && !verificationDateField.value) {
+                const today = new Date().toISOString().split('T')[0];
+                verificationDateField.value = today;
+            }
+        }
+    }
+    
+    if (isVerifiedField) {
+        isVerifiedField.addEventListener('change', toggleVerificationFields);
+        toggleVerificationFields();
+    }
+    
+    const startYearField = document.getElementById('id_start_year');
+    const completionYearField = document.getElementById('id_completion_year');
+    
+    function validateYears() {
+        if (startYearField && completionYearField) {
+            const startYear = parseInt(startYearField.value);
+            const completionYear = parseInt(completionYearField.value);
+            
+            if (startYear && completionYear && completionYear < startYear) {
+                completionYearField.setCustomValidity('Completion year cannot be before start year');
+            } else {
+                completionYearField.setCustomValidity('');
+            }
+        }
+    }
+    
+    if (startYearField && completionYearField) {
+        startYearField.addEventListener('change', validateYears);
+        completionYearField.addEventListener('change', validateYears);
+    }
+    
+    const certificateFileField = document.getElementById('id_certificate_file');
+    if (certificateFileField) {
+        certificateFileField.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const maxSize = 5 * 1024 * 1024;
+                const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+                
+                if (file.size > maxSize) {
+                    alert('File size must be less than 5MB');
+                    this.value = '';
+                    return;
+                }
+                
+                if (!allowedTypes.includes(file.type)) {
+                    alert('Only PDF, JPG, and PNG files are allowed');
+                    this.value = '';
+                    return;
+                }
+            }
+        });
+    }
+    
+    const form = document.getElementById('education_form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const requiredFields = form.querySelectorAll('input[required], select[required]');
+            let hasErrors = false;
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    field.style.borderColor = '#EF4444';
+                    hasErrors = true;
+                } else {
+                    field.style.borderColor = '#E5E7EB';
+                }
+            });
+            
+            if (hasErrors) {
+                e.preventDefault();
+                alert('Please fill in all required fields.');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+
+

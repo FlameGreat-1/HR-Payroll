@@ -1,0 +1,1946 @@
+{% load i18n static %}
+
+<div class="contract-alerts-widget">
+    <div class="widget-header">
+        <h3><i class="fas fa-exclamation-triangle"></i> Contract Alerts</h3>
+        <div class="widget-actions">
+            <div class="alert-filter">
+                <select id="alertTypeFilter" onchange="filterContractAlerts()">
+                    <option value="all">All Alerts</option>
+                    <option value="expiring">Expiring Soon</option>
+                    <option value="expired">Expired</option>
+                    <option value="renewal">Renewal Due</option>
+                    <option value="overlap">Overlapping</option>
+                </select>
+            </div>
+            <a href="{% url 'admin:employees_contract_changelist' %}" class="view-all-btn">
+                <i class="fas fa-external-link-alt"></i> View All
+            </a>
+            <button class="refresh-btn" onclick="refreshContractAlerts()">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="widget-content">
+        <div class="alerts-summary">
+            <div class="summary-card critical">
+                <div class="summary-icon">
+                    <i class="fas fa-exclamation-circle"></i>
+                </div>
+                <div class="summary-content">
+                    <div class="summary-number">{{ critical_alerts|default:0 }}</div>
+                    <div class="summary-label">Critical Alerts</div>
+                    <div class="summary-description">Require immediate attention</div>
+                </div>
+            </div>
+            
+            <div class="summary-card warning">
+                <div class="summary-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="summary-content">
+                    <div class="summary-number">{{ expiring_soon|default:0 }}</div>
+                    <div class="summary-label">Expiring Soon</div>
+                    <div class="summary-description">Within 30 days</div>
+                </div>
+            </div>
+            
+            <div class="summary-card expired">
+                <div class="summary-icon">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="summary-content">
+                    <div class="summary-number">{{ expired_contracts|default:0 }}</div>
+                    <div class="summary-label">Expired</div>
+                    <div class="summary-description">Past end date</div>
+                </div>
+            </div>
+            
+            <div class="summary-card overlap">
+                <div class="summary-icon">
+                    <i class="fas fa-layer-group"></i>
+                </div>
+                <div class="summary-content">
+                    <div class="summary-number">{{ overlapping_contracts|default:0 }}</div>
+                    <div class="summary-label">Overlapping</div>
+                    <div class="summary-description">Date conflicts</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="critical-alerts-section">
+            <h4><i class="fas fa-fire"></i> Critical Alerts - Immediate Action Required</h4>
+            <div class="alerts-container">
+                {% for alert in critical_contract_alerts %}
+                <div class="alert-item critical" data-alert-type="critical">
+                    <div class="alert-priority">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span class="priority-level">CRITICAL</span>
+                    </div>
+                    
+                    <div class="contract-details">
+                        <div class="employee-info">
+                            <div class="employee-avatar">
+                                <i class="fas fa-user-circle"></i>
+                            </div>
+                            <div class="employee-data">
+                                <div class="employee-name">{{ alert.contract.employee.get_full_name }}</div>
+                                <div class="employee-meta">
+                                    <span class="employee-id">{{ alert.contract.employee.employee_profile.employee_id }}</span>
+                                    <span class="separator">•</span>
+                                    <span class="department">{{ alert.contract.employee.department.name|default:"No Department" }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="contract-info">
+                            <div class="contract-header">
+                                <span class="contract-number">{{ alert.contract.contract_number }}</span>
+                                <span class="contract-type">{{ alert.contract.get_contract_type_display }}</span>
+                            </div>
+                            <div class="contract-dates">
+                                <span class="start-date">{{ alert.contract.start_date|date:"M d, Y" }}</span>
+                                <span class="date-separator">→</span>
+                                <span class="end-date">{{ alert.contract.end_date|date:"M d, Y" }}</span>
+                            </div>
+                            <div class="contract-status">
+                                <span class="salary">${{ alert.contract.basic_salary|floatformat:0 }}</span>
+                                <span class="separator">•</span>
+                                <span class="days-remaining">
+                                    {% with days_left=alert.contract.days_remaining %}
+                                        {% if days_left <= 0 %}
+                                            <span class="expired">Expired {{ days_left|abs }} days ago</span>
+                                        {% else %}
+                                            <span class="expiring">{{ days_left }} days left</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert-message">
+                        <div class="alert-title">{{ alert.alert_type|title }} Alert</div>
+                        <div class="alert-description">{{ alert.message }}</div>
+                        <div class="alert-timestamp">{{ alert.created_at|timesince }} ago</div>
+                    </div>
+                    
+                    <div class="alert-actions">
+                        {% if alert.alert_type == 'EXPIRED' %}
+                            <a href="{% url 'admin:employees_contract_renew' alert.contract.pk %}" class="action-btn renew urgent">
+                                <i class="fas fa-redo"></i> Renew Now
+                            </a>
+                            <a href="{% url 'admin:employees_contract_terminate' alert.contract.pk %}" class="action-btn terminate">
+                                <i class="fas fa-times"></i> Terminate
+                            </a>
+                        {% elif alert.alert_type == 'EXPIRING' %}
+                            <a href="{% url 'admin:employees_contract_renew' alert.contract.pk %}" class="action-btn renew">
+                                <i class="fas fa-redo"></i> Renew
+                            </a>
+                            <a href="{% url 'admin:employees_contract_change' alert.contract.pk %}" class="action-btn edit">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                        {% elif alert.alert_type == 'OVERLAP' %}
+                            <a href="{% url 'admin:employees_contract_resolve_overlap' alert.contract.pk %}" class="action-btn resolve">
+                                <i class="fas fa-tools"></i> Resolve
+                            </a>
+                        {% endif %}
+                        <button class="action-btn dismiss" onclick="dismissAlert({{ alert.pk }})">
+                            <i class="fas fa-times"></i> Dismiss
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-critical-alerts">
+                    <i class="fas fa-check-circle"></i>
+                    <p>No critical contract alerts</p>
+                    <small>All contracts are in good standing</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="warning-alerts-section">
+            <h4><i class="fas fa-exclamation-triangle"></i> Warning Alerts - Action Recommended</h4>
+            <div class="alerts-container">
+                {% for alert in warning_contract_alerts %}
+                <div class="alert-item warning" data-alert-type="warning">
+                    <div class="alert-priority">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span class="priority-level">WARNING</span>
+                    </div>
+                    
+                    <div class="contract-details">
+                        <div class="employee-info">
+                            <div class="employee-avatar">
+                                <i class="fas fa-user-circle"></i>
+                            </div>
+                            <div class="employee-data">
+                                <div class="employee-name">{{ alert.contract.employee.get_full_name }}</div>
+                                <div class="employee-meta">
+                                    <span class="contract-number">{{ alert.contract.contract_number }}</span>
+                                    <span class="separator">•</span>
+                                    <span class="department">{{ alert.contract.employee.department.name|default:"No Department" }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="contract-timeline">
+                            <div class="timeline-item">
+                                <span class="timeline-label">End Date:</span>
+                                <span class="timeline-value">{{ alert.contract.end_date|date:"M d, Y" }}</span>
+                            </div>
+                            <div class="timeline-item">
+                                <span class="timeline-label">Days Left:</span>
+                                <span class="timeline-value">{{ alert.contract.days_remaining }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert-message">
+                        <div class="alert-description">{{ alert.message }}</div>
+                        <div class="alert-recommendation">{{ alert.recommendation|default:"Consider renewal or contract extension" }}</div>
+                    </div>
+                    
+                    <div class="alert-actions">
+                        <a href="{% url 'admin:employees_contract_change' alert.contract.pk %}" class="action-btn view">
+                            <i class="fas fa-eye"></i> View
+                        </a>
+                        <button class="action-btn snooze" onclick="snoozeAlert({{ alert.pk }}, 7)">
+                            <i class="fas fa-clock"></i> Snooze 7d
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-warning-alerts">
+                    <i class="fas fa-info-circle"></i>
+                    <p>No warning alerts</p>
+                    <small>No contracts require attention</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="info-alerts-section">
+            <h4><i class="fas fa-info-circle"></i> Information Alerts - For Your Awareness</h4>
+            <div class="alerts-container">
+                {% for alert in info_contract_alerts %}
+                <div class="alert-item info" data-alert-type="info">
+                    <div class="alert-priority">
+                        <i class="fas fa-info-circle"></i>
+                        <span class="priority-level">INFO</span>
+                    </div>
+                    
+                    <div class="contract-summary">
+                        <div class="summary-line">
+                            <span class="employee-name">{{ alert.contract.employee.get_full_name }}</span>
+                            <span class="contract-info">{{ alert.contract.contract_number }} - {{ alert.contract.get_contract_type_display }}</span>
+                        </div>
+                        <div class="summary-message">{{ alert.message }}</div>
+                    </div>
+                    
+                    <div class="alert-timestamp">{{ alert.created_at|date:"M d, H:i" }}</div>
+                </div>
+                {% empty %}
+                <div class="no-info-alerts">
+                    <i class="fas fa-clipboard-check"></i>
+                    <p>No information alerts</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="alerts-analytics">
+            <h4><i class="fas fa-chart-line"></i> Contract Alerts Analytics</h4>
+            <div class="analytics-grid">
+                <div class="analytics-item">
+                    <div class="analytics-chart">
+                        <canvas id="alertsDistributionChart" width="120" height="120"></canvas>
+                    </div>
+                    <div class="analytics-legend">
+                        <div class="legend-item critical">
+                            <span class="legend-color"></span>
+                            <span class="legend-label">Critical ({{ critical_alerts }})</span>
+                        </div>
+                        <div class="legend-item warning">
+                            <span class="legend-color"></span>
+                            <span class="legend-label">Warning ({{ warning_alerts }})</span>
+                        </div>
+                        <div class="legend-item info">
+                            <span class="legend-color"></span>
+                            <span class="legend-label">Info ({{ info_alerts }})</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="analytics-stats">
+                    <div class="stat-row">
+                        <span class="stat-label">Total Alerts:</span>
+                        <span class="stat-value">{{ total_alerts }}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Resolved Today:</span>
+                        <span class="stat-value">{{ resolved_today }}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Average Resolution Time:</span>
+                        <span class="stat-value">{{ avg_resolution_time }} hours</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Most Common Alert:</span>
+                        <span class="stat-value">{{ most_common_alert_type }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="quick-actions">
+            <h4><i class="fas fa-bolt"></i> Quick Actions</h4>
+            <div class="actions-grid">
+                <a href="{% url 'admin:employees_contract_bulk_renewal' %}" class="quick-action-btn">
+                    <i class="fas fa-redo"></i>
+                    <span>Bulk Renewal</span>
+                </a>
+                <a href="{% url 'admin:employees_contract_export_expiring' %}" class="quick-action-btn">
+                    <i class="fas fa-download"></i>
+                    <span>Export Expiring</span>
+                </a>
+                <a href="{% url 'admin:employees_contract_generate_report' %}" class="quick-action-btn">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Generate Report</span>
+                </a>
+                <button onclick="dismissAllAlerts()" class="quick-action-btn">
+                    <i class="fas fa-times-circle"></i>
+                    <span>Dismiss All</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.contract-alerts-widget {
+    background: #FFFFFF;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(213, 0, 249, 0.1);
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.widget-header {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.widget-header h3 {
+    color: #FFFFFF;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.widget-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.alert-filter select {
+    background: rgba(255, 255, 255, 0.2);
+    color: #FFFFFF;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.alert-filter select option {
+    background: #2B2B2B;
+    color: #FFFFFF;
+}
+
+.view-all-btn, .refresh-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: #FFFFFF;
+    padding: 6px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.view-all-btn:hover, .refresh-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    color: #FFFFFF;
+}
+
+.widget-content {
+    padding: 20px;
+}
+
+.alerts-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.summary-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
+    transition: all 0.3s ease;
+}
+
+.summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.summary-card.critical {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.summary-card.warning {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.summary-card.expired {
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(185, 28, 28, 0.05) 100%);
+    border-color: rgba(220, 38, 38, 0.2);
+}
+
+.summary-card.overlap {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(124, 58, 237, 0.05) 100%);
+    border-color: rgba(139, 92, 246, 0.2);
+}
+
+.summary-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #FFFFFF;
+}
+
+.summary-card.critical .summary-icon {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+}
+
+.summary-card.warning .summary-icon {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+}
+
+.summary-card.expired .summary-icon {
+    background: linear-gradient(90deg, #DC2626 0%, #B91C1C 100%);
+}
+
+.summary-card.overlap .summary-icon {
+    background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%);
+}
+
+.summary-content {
+    flex: 1;
+}
+
+.summary-number {
+    font-size: 24px;
+    font-weight: 800;
+    color: #2B2B2B;
+    margin-bottom: 4px;
+    font-family: 'Inter', 'Roboto', sans-serif;
+}
+
+.summary-label {
+    font-size: 12px;
+    color: #374151;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.summary-description {
+    font-size: 10px;
+    color: #6B7280;
+    font-style: italic;
+}
+
+.critical-alerts-section, .warning-alerts-section, .info-alerts-section, .alerts-analytics, .quick-actions {
+    margin-bottom: 24px;
+}
+
+.critical-alerts-section h4, .warning-alerts-section h4, .info-alerts-section h4, .alerts-analytics h4, .quick-actions h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2B2B2B;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.critical-alerts-section h4 {
+    color: #EF4444;
+}
+
+.warning-alerts-section h4 {
+    color: #F59E0B;
+}
+
+.info-alerts-section h4 {
+    color: #3D5AFE;
+}
+
+.alerts-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.alert-item {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
+    background: #FFFFFF;
+    transition: all 0.3s ease;
+}
+
+.alert-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.alert-item.critical {
+    border-left: 4px solid #EF4444;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.03) 0%, rgba(255, 255, 255, 1) 100%);
+}
+
+.alert-item.warning {
+    border-left: 4px solid #F59E0B;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.03) 0%, rgba(255, 255, 255, 1) 100%);
+}
+
+.alert-item.info {
+    border-left: 4px solid #3D5AFE;
+    background: linear-gradient(135deg, rgba(61, 90, 254, 0.03) 0%, rgba(255, 255, 255, 1) 100%);
+}
+
+.alert-priority {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 60px;
+}
+
+.alert-priority i {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #FFFFFF;
+}
+
+.alert-item.critical .alert-priority i {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+}
+
+.alert-item.warning .alert-priority i {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+}
+
+.alert-item.info .alert-priority i {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+}
+
+.priority-level {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6B7280;
+}
+
+.contract-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.employee-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.employee-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(90deg, #6B7280 0%, #4B5563 100%);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.employee-data {
+    flex: 1;
+}
+
+.employee-name {
+    font-weight: 600;
+    color: #2B2B2B;
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+
+.employee-meta {
+    font-size: 11px;
+    color: #6B7280;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.employee-id {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-family: monospace;
+}
+
+.separator {
+    color: #D1D5DB;
+}
+
+.contract-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.contract-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.contract-number {
+    font-weight: 700;
+    color: #2B2B2B;
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.contract-type {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    color: #FFFFFF;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.contract-dates {
+    font-size: 11px;
+    color: #6B7280;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.date-separator {
+    color: #D1D5DB;
+}
+
+.contract-status {
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.salary {
+    font-weight: 600;
+    color: #10B981;
+}
+
+.days-remaining .expired {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 9px;
+}
+
+.days-remaining .expiring {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    color: #FFFFFF;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 9px;
+}
+
+.contract-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.timeline-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+}
+
+.timeline-label {
+    color: #6B7280;
+    font-weight: 500;
+}
+
+.timeline-value {
+    color: #374151;
+    font-weight: 600;
+}
+
+.alert-message {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.alert-title {
+    font-weight: 600;
+    color: #2B2B2B;
+    font-size: 13px;
+}
+
+.alert-description {
+    font-size: 12px;
+    color: #6B7280;
+    line-height: 1.4;
+}
+
+.alert-recommendation {
+    font-size: 11px;
+    color: #8B5CF6;
+    font-style: italic;
+}
+
+.alert-timestamp {
+    font-size: 9px;
+    color: #9CA3AF;
+    text-align: right;
+}
+
+.alert-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 100px;
+}
+
+.action-btn {
+    padding: 6px 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: none;
+    cursor: pointer;
+}
+
+.action-btn.renew {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: #FFFFFF;
+}
+
+.action-btn.renew.urgent {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    animation: pulse 2s infinite;
+}
+
+.action-btn.terminate {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+}
+
+.action-btn.edit {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    color: #FFFFFF;
+}
+
+.action-btn.resolve {
+    background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%);
+    color: #FFFFFF;
+}
+
+.action-btn.dismiss {
+    background: #6B7280;
+    color: #FFFFFF;
+}
+
+.action-btn.view {
+    background: #374151;
+    color: #FFFFFF;
+}
+
+.action-btn.snooze {
+    background: #F59E0B;
+    color: #FFFFFF;
+}
+
+.action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    color: #FFFFFF;
+}
+
+.contract-summary {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.summary-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.summary-line .employee-name {
+    font-weight: 600;
+    color: #2B2B2B;
+    font-size: 13px;
+}
+
+.summary-line .contract-info {
+    font-size: 11px;
+    color: #6B7280;
+    font-family: monospace;
+}
+
+.summary-message {
+    font-size: 12px;
+    color: #6B7280;
+}
+
+.no-critical-alerts, .no-warning-alerts, .no-info-alerts {
+    text-align: center;
+    padding: 30px 20px;
+    color: #6B7280;
+    background: #F8F9FA;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
+}
+
+.no-critical-alerts i, .no-warning-alerts i, .no-info-alerts i {
+    font-size: 32px;
+    margin-bottom: 12px;
+    color: #D1D5DB;
+}
+
+.no-critical-alerts p, .no-warning-alerts p, .no-info-alerts p {
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #374151;
+}
+
+.no-critical-alerts small, .no-warning-alerts small {
+    color: #9CA3AF;
+    font-size: 11px;
+}
+
+.analytics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: center;
+}
+
+.analytics-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.analytics-chart {
+    position: relative;
+}
+
+.analytics-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.legend-item.critical .legend-color {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+}
+
+.legend-item.warning .legend-color {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+}
+
+.legend-item.info .legend-color {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+}
+
+.legend-label {
+    color: #374151;
+    font-weight: 500;
+}
+
+.analytics-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.stat-row:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #6B7280;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 12px;
+    color: #2B2B2B;
+    font-weight: 600;
+}
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+}
+
+.quick-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px;
+    background: #F8F9FA;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #374151;
+    font-size: 11px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.quick-action-btn:hover {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    color: #FFFFFF;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(61, 90, 254, 0.2);
+}
+
+.quick-action-btn i {
+    font-size: 16px;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.alert-item.dismissed {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+
+.alert-item.snoozed {
+    opacity: 0.7;
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.1) 0%, rgba(255, 255, 255, 1) 100%);
+}
+
+.alert-item.new-alert {
+    animation: newAlertPulse 3s ease-in-out;
+    border-left-width: 6px;
+}
+
+@keyframes newAlertPulse {
+    0%, 100% { 
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    50% { 
+        box-shadow: 0 4px 16px rgba(61, 90, 254, 0.2);
+    }
+}
+
+@media (max-width: 768px) {
+    .alerts-summary {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    
+    .summary-card {
+        padding: 12px;
+    }
+    
+    .summary-number {
+        font-size: 20px;
+    }
+    
+    .alert-item {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .alert-priority {
+        flex-direction: row;
+        min-width: auto;
+    }
+    
+    .contract-details {
+        width: 100%;
+    }
+    
+    .alert-actions {
+        flex-direction: row;
+        min-width: auto;
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    .analytics-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .widget-content {
+        padding: 16px;
+    }
+    
+    .alerts-summary {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .alert-item {
+        padding: 12px;
+    }
+    
+    .actions-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.alerts-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.alerts-container::-webkit-scrollbar-track {
+    background: #F3F4F6;
+    border-radius: 3px;
+}
+
+.alerts-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    border-radius: 3px;
+}
+
+.alerts-container::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, #2D4AEE 0%, #C500E9 100%);
+}
+
+.alert-item:hover .alert-priority i {
+    transform: scale(1.1);
+    transition: transform 0.3s ease;
+}
+
+.summary-card:hover .summary-icon {
+    transform: scale(1.05);
+    transition: transform 0.3s ease;
+}
+
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3D5AFE;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initContractAlertsWidget();
+        setupAlertFiltering();
+        setupAlertInteractions();
+        setupAutoRefresh();
+        initAlertsChart();
+    });
+    
+    function initContractAlertsWidget() {
+        const alertItems = document.querySelectorAll('.alert-item');
+        
+        alertItems.forEach((item, index) => {
+            setTimeout(() => {
+                item.classList.add('fade-in');
+            }, index * 100);
+        });
+        
+        setupAlertHovers();
+        checkForNewAlerts();
+        updateAlertCounts();
+    }
+    
+    function setupAlertFiltering() {
+        const filterSelect = document.getElementById('alertTypeFilter');
+        
+        if (filterSelect) {
+            filterSelect.addEventListener('change', function() {
+                filterContractAlerts();
+            });
+        }
+    }
+    
+    function filterContractAlerts() {
+        const filterValue = document.getElementById('alertTypeFilter').value;
+        const alertItems = document.querySelectorAll('.alert-item');
+        let visibleCount = 0;
+        
+        alertItems.forEach(item => {
+            const alertType = item.dataset.alertType;
+            const shouldShow = filterValue === 'all' || 
+                              (filterValue === 'expiring' && (alertType === 'critical' || alertType === 'warning')) ||
+                              (filterValue === 'expired' && alertType === 'critical') ||
+                              (filterValue === 'renewal' && alertType === 'warning') ||
+                              (filterValue === 'overlap' && alertType === 'info') ||
+                              filterValue === alertType;
+            
+            if (shouldShow) {
+                item.style.display = 'flex';
+                item.classList.add('fade-in');
+                visibleCount++;
+            } else {
+                item.classList.add('fade-out');
+                setTimeout(() => {
+                    item.style.display = 'none';
+                    item.classList.remove('fade-out');
+                }, 300);
+            }
+        });
+        
+        updateFilteredMessage(visibleCount, filterValue);
+    }
+    
+    function updateFilteredMessage(visibleCount, filterType) {
+        const containers = document.querySelectorAll('.alerts-container');
+        
+        containers.forEach(container => {
+            let noAlertsMsg = container.querySelector('.no-filtered-alerts');
+            
+            if (visibleCount === 0 && filterType !== 'all') {
+                if (!noAlertsMsg) {
+                    noAlertsMsg = document.createElement('div');
+                    noAlertsMsg.className = 'no-filtered-alerts';
+                    noAlertsMsg.innerHTML = `
+                        <i class="fas fa-filter"></i>
+                        <p>No alerts match the selected filter</p>
+                        <small>Try selecting a different filter option</small>
+                    `;
+                    noAlertsMsg.style.cssText = `
+                        text-align: center;
+                        padding: 30px 20px;
+                        color: #6B7280;
+                        background: #F8F9FA;
+                        border-radius: 8px;
+                        border: 1px solid #E5E7EB;
+                    `;
+                    container.appendChild(noAlertsMsg);
+                }
+                noAlertsMsg.style.display = 'block';
+            } else if (noAlertsMsg) {
+                noAlertsMsg.style.display = 'none';
+            }
+        });
+    }
+    
+    function setupAlertInteractions() {
+        setupActionButtons();
+        setupQuickActions();
+        setupAlertDismissal();
+    }
+    
+    function setupActionButtons() {
+        const actionButtons = document.querySelectorAll('.action-btn');
+        
+        actionButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                if (this.classList.contains('dismiss')) {
+                    e.preventDefault();
+                    const alertId = this.getAttribute('onclick').match(/\d+/)[0];
+                    dismissAlert(alertId);
+                } else if (this.classList.contains('snooze')) {
+                    e.preventDefault();
+                    const alertId = this.getAttribute('onclick').match(/\d+/)[0];
+                    const days = this.getAttribute('onclick').match(/\d+/g)[1];
+                    snoozeAlert(alertId, days);
+                } else if (this.classList.contains('renew')) {
+                    e.preventDefault();
+                    const alertItem = this.closest('.alert-item');
+                    const employeeName = alertItem.querySelector('.employee-name').textContent;
+                    const isUrgent = this.classList.contains('urgent');
+                    
+                    const message = isUrgent 
+                        ? `This contract has expired! Are you sure you want to renew ${employeeName}'s contract immediately?`
+                        : `Are you sure you want to renew ${employeeName}'s contract?`;
+                    
+                    if (confirm(message)) {
+                        this.innerHTML = '<span class="loading-spinner"></span> Processing...';
+                        this.style.pointerEvents = 'none';
+                        setTimeout(() => {
+                            window.location.href = this.href;
+                        }, 500);
+                    }
+                } else if (this.classList.contains('terminate')) {
+                    e.preventDefault();
+                    const alertItem = this.closest('.alert-item');
+                    const employeeName = alertItem.querySelector('.employee-name').textContent;
+                    
+                    if (confirm(`Are you sure you want to terminate ${employeeName}'s contract? This action cannot be undone.`)) {
+                        if (confirm('This will permanently terminate the contract. Are you absolutely sure?')) {
+                            window.location.href = this.href;
+                        }
+                    }
+                }
+            });
+        });
+    }
+    
+    function setupQuickActions() {
+        const quickActionButtons = document.querySelectorAll('.quick-action-btn');
+        
+        quickActionButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                if (this.textContent.includes('Dismiss All')) {
+                    e.preventDefault();
+                    dismissAllAlerts();
+                } else if (this.href) {
+                    e.preventDefault();
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Loading...</span>';
+                    setTimeout(() => {
+                        window.location.href = this.href;
+                    }, 500);
+                }
+            });
+        });
+    }
+    
+    function setupAlertDismissal() {
+        const dismissButtons = document.querySelectorAll('.action-btn.dismiss');
+        
+        dismissButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const alertItem = this.closest('.alert-item');
+                alertItem.classList.add('dismissed');
+                
+                setTimeout(() => {
+                    alertItem.style.display = 'none';
+                    updateAlertCounts();
+                }, 500);
+            });
+        });
+    }
+    
+    function dismissAlert(alertId) {
+        const alertItem = document.querySelector(`[data-alert-id="${alertId}"]`) || 
+                         event.target.closest('.alert-item');
+        
+        if (alertItem) {
+            alertItem.classList.add('dismissed');
+            
+            fetch(`/admin/employees/alerts/dismiss/${alertId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken(),
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    setTimeout(() => {
+                        alertItem.style.display = 'none';
+                        updateAlertCounts();
+                        showNotification('Alert dismissed successfully', 'success');
+                    }, 500);
+                } else {
+                    alertItem.classList.remove('dismissed');
+                    showNotification('Failed to dismiss alert', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error dismissing alert:', error);
+                alertItem.classList.remove('dismissed');
+                showNotification('Error dismissing alert', 'error');
+            });
+        }
+    }
+    
+    function snoozeAlert(alertId, days) {
+        const alertItem = document.querySelector(`[data-alert-id="${alertId}"]`) || 
+                         event.target.closest('.alert-item');
+        
+        if (alertItem) {
+            alertItem.classList.add('snoozed');
+            
+            fetch(`/admin/employees/alerts/snooze/${alertId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken(),
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ days: parseInt(days) })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const snoozeInfo = document.createElement('div');
+                    snoozeInfo.className = 'snooze-info';
+                    snoozeInfo.innerHTML = `<i class="fas fa-clock"></i> Snoozed for ${days} days`;
+                    snoozeInfo.style.cssText = `
+                        font-size: 10px;
+                        color: #6B7280;
+                        background: #F3F4F6;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        margin-top: 4px;
+                    `;
+                    alertItem.querySelector('.alert-message').appendChild(snoozeInfo);
+                    showNotification(`Alert snoozed for ${days} days`, 'success');
+                } else {
+                    alertItem.classList.remove('snoozed');
+                    showNotification('Failed to snooze alert', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error snoozing alert:', error);
+                alertItem.classList.remove('snoozed');
+                showNotification('Error snoozing alert', 'error');
+            });
+        }
+    }
+    
+    function dismissAllAlerts() {
+        const visibleAlerts = document.querySelectorAll('.alert-item:not([style*="display: none"])');
+        
+        if (visibleAlerts.length === 0) {
+            showNotification('No alerts to dismiss', 'info');
+            return;
+        }
+        
+        if (confirm(`Are you sure you want to dismiss all ${visibleAlerts.length} visible alerts?`)) {
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.className = 'loading-overlay';
+            loadingOverlay.innerHTML = '<div class="loading-spinner"></div>';
+            document.querySelector('.widget-content').appendChild(loadingOverlay);
+            
+            fetch('/admin/employees/alerts/dismiss-all/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken(),
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    visibleAlerts.forEach((alert, index) => {
+                        setTimeout(() => {
+                            alert.classList.add('dismissed');
+                            setTimeout(() => {
+                                alert.style.display = 'none';
+                            }, 300);
+                        }, index * 50);
+                    });
+                    
+                    setTimeout(() => {
+                        updateAlertCounts();
+                        showNotification(`${data.dismissed_count} alerts dismissed`, 'success');
+                    }, visibleAlerts.length * 50 + 300);
+                } else {
+                    showNotification('Failed to dismiss alerts', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error dismissing all alerts:', error);
+                showNotification('Error dismissing alerts', 'error');
+            })
+            .finally(() => {
+                loadingOverlay.remove();
+            });
+        }
+    }
+    
+    function setupAlertHovers() {
+        const alertItems = document.querySelectorAll('.alert-item');
+        
+        alertItems.forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                const priorityIcon = this.querySelector('.alert-priority i');
+                if (priorityIcon) {
+                    priorityIcon.style.transform = 'scale(1.1)';
+                }
+            });
+            
+            item.addEventListener('mouseleave', function() {
+                const priorityIcon = this.querySelector('.alert-priority i');
+                if (priorityIcon) {
+                    priorityIcon.style.transform = 'scale(1)';
+                }
+            });
+        });
+    }
+    
+    function checkForNewAlerts() {
+        const alertItems = document.querySelectorAll('.alert-item');
+        const now = new Date();
+        
+        alertItems.forEach(item => {
+            const timestamp = item.querySelector('.alert-timestamp');
+            if (timestamp) {
+                const alertTime = new Date(timestamp.textContent);
+                const timeDiff = now - alertTime;
+                const hoursDiff = timeDiff / (1000 * 60 * 60);
+                
+                if (hoursDiff < 1) {
+                    item.classList.add('new-alert');
+                }
+            }
+        });
+    }
+    
+    function updateAlertCounts() {
+        const criticalCount = document.querySelectorAll('.alert-item.critical:not([style*="display: none"])').length;
+        const warningCount = document.querySelectorAll('.alert-item.warning:not([style*="display: none"])').length;
+        const infoCount = document.querySelectorAll('.alert-item.info:not([style*="display: none"])').length;
+        
+        const summaryNumbers = document.querySelectorAll('.summary-number');
+        if (summaryNumbers[0]) summaryNumbers[0].textContent = criticalCount;
+        if (summaryNumbers[1]) summaryNumbers[1].textContent = warningCount;
+        if (summaryNumbers[2]) summaryNumbers[2].textContent = criticalCount; // Expired is part of critical
+        if (summaryNumbers[3]) summaryNumbers[3].textContent = infoCount; // Overlapping
+    }
+    
+    function initAlertsChart() {
+        const canvas = document.getElementById('alertsDistributionChart');
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        const criticalCount = {{ critical_alerts|default:0 }};
+        const warningCount = {{ warning_alerts|default:0 }};
+        const infoCount = {{ info_alerts|default:0 }};
+        
+        const data = {
+            labels: ['Critical', 'Warning', 'Info'],
+            datasets: [{
+                data: [criticalCount, warningCount, infoCount],
+                backgroundColor: [
+                    '#EF4444',
+                    '#F59E0B',
+                    '#3D5AFE'
+                ],
+                borderWidth: 0
+            }]
+        };
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+    }
+
+    function setupAutoRefresh() {
+        setInterval(() => {
+            const now = new Date();
+            const hours = now.getHours();
+            
+            // Only refresh during business hours
+            if (hours >= 8 && hours <= 18) {
+                refreshContractAlerts();
+            }
+        }, 300000); // 5 minutes
+    }
+    
+    function refreshContractAlerts() {
+        const refreshBtn = document.querySelector('.refresh-btn');
+        const icon = refreshBtn.querySelector('i');
+        const widgetContent = document.querySelector('.widget-content');
+        
+        icon.classList.add('fa-spin');
+        refreshBtn.disabled = true;
+        
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.className = 'loading-overlay';
+        loadingOverlay.innerHTML = '<div class="loading-spinner"></div>';
+        widgetContent.appendChild(loadingOverlay);
+        
+        fetch('/admin/employees/dashboard/refresh-contract-alerts/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateAlertsSummary(data.summary);
+                    updateAlertsContent(data.alerts);
+                    updateAnalytics(data.analytics);
+                    
+                    if (data.new_critical_alerts > 0) {
+                        showCriticalAlertNotification(data.new_critical_alerts);
+                    }
+                    
+                    // Reinitialize chart with new data
+                    initAlertsChart();
+                    
+                    showNotification('Contract alerts refreshed successfully', 'success');
+                } else {
+                    showNotification('Failed to refresh contract alerts', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error refreshing contract alerts:', error);
+                showNotification('Error refreshing contract alerts', 'error');
+            })
+            .finally(() => {
+                icon.classList.remove('fa-spin');
+                refreshBtn.disabled = false;
+                loadingOverlay.remove();
+            });
+    }
+    
+    function updateAlertsSummary(summary) {
+        const summaryNumbers = document.querySelectorAll('.summary-number');
+        if (summaryNumbers[0]) summaryNumbers[0].textContent = summary.critical_alerts || 0;
+        if (summaryNumbers[1]) summaryNumbers[1].textContent = summary.expiring_soon || 0;
+        if (summaryNumbers[2]) summaryNumbers[2].textContent = summary.expired_contracts || 0;
+        if (summaryNumbers[3]) summaryNumbers[3].textContent = summary.overlapping_contracts || 0;
+    }
+    
+    function updateAlertsContent(alerts) {
+        const criticalContainer = document.querySelector('.critical-alerts-section .alerts-container');
+        const warningContainer = document.querySelector('.warning-alerts-section .alerts-container');
+        const infoContainer = document.querySelector('.info-alerts-section .alerts-container');
+        
+        // Clear existing alerts
+        [criticalContainer, warningContainer, infoContainer].forEach(container => {
+            const existingAlerts = container.querySelectorAll('.alert-item');
+            existingAlerts.forEach(alert => {
+                alert.classList.add('fade-out');
+                setTimeout(() => alert.remove(), 300);
+            });
+        });
+        
+        // Add new alerts
+        setTimeout(() => {
+            alerts.critical.forEach((alert, index) => {
+                const alertElement = createAlertElement(alert, 'critical');
+                criticalContainer.appendChild(alertElement);
+                setTimeout(() => alertElement.classList.add('fade-in'), index * 50);
+            });
+            
+            alerts.warning.forEach((alert, index) => {
+                const alertElement = createAlertElement(alert, 'warning');
+                warningContainer.appendChild(alertElement);
+                setTimeout(() => alertElement.classList.add('fade-in'), index * 50);
+            });
+            
+            alerts.info.forEach((alert, index) => {
+                const alertElement = createAlertElement(alert, 'info');
+                infoContainer.appendChild(alertElement);
+                setTimeout(() => alertElement.classList.add('fade-in'), index * 50);
+            });
+            
+            setupAlertInteractions();
+            setupAlertHovers();
+        }, 300);
+    }
+    
+    function createAlertElement(alert, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert-item ${type}`;
+        alertDiv.dataset.alertType = type;
+        alertDiv.dataset.alertId = alert.id;
+        
+        const priorityIcons = {
+            critical: 'exclamation-triangle',
+            warning: 'exclamation-triangle',
+            info: 'info-circle'
+        };
+        
+        alertDiv.innerHTML = `
+            <div class="alert-priority">
+                <i class="fas fa-${priorityIcons[type]}"></i>
+                <span class="priority-level">${type.toUpperCase()}</span>
+            </div>
+            <div class="contract-details">
+                <div class="employee-info">
+                    <div class="employee-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="employee-data">
+                        <div class="employee-name">${alert.employee_name}</div>
+                        <div class="employee-meta">
+                            <span class="employee-id">${alert.employee_id}</span>
+                            <span class="separator">•</span>
+                            <span class="department">${alert.department || 'No Department'}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="contract-info">
+                    <div class="contract-header">
+                        <span class="contract-number">${alert.contract_number}</span>
+                        <span class="contract-type">${alert.contract_type}</span>
+                    </div>
+                    <div class="contract-dates">
+                        <span class="start-date">${formatDate(alert.start_date)}</span>
+                        <span class="date-separator">→</span>
+                        <span class="end-date">${formatDate(alert.end_date)}</span>
+                    </div>
+                    <div class="contract-status">
+                        <span class="salary">$${alert.salary}</span>
+                        <span class="separator">•</span>
+                        <span class="days-remaining">
+                            ${alert.days_remaining <= 0 ? 
+                                `<span class="expired">Expired ${Math.abs(alert.days_remaining)} days ago</span>` :
+                                `<span class="expiring">${alert.days_remaining} days left</span>`
+                            }
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="alert-message">
+                <div class="alert-title">${alert.alert_type} Alert</div>
+                <div class="alert-description">${alert.message}</div>
+                <div class="alert-timestamp">${formatTimestamp(alert.created_at)}</div>
+            </div>
+            <div class="alert-actions">
+                ${generateActionButtons(alert)}
+            </div>
+        `;
+        
+        return alertDiv;
+    }
+    
+    function generateActionButtons(alert) {
+        let buttons = '';
+        
+        if (alert.alert_type === 'EXPIRED') {
+            buttons += `
+                <a href="/admin/employees/contract/${alert.contract_id}/renew/" class="action-btn renew urgent">
+                    <i class="fas fa-redo"></i> Renew Now
+                </a>
+                <a href="/admin/employees/contract/${alert.contract_id}/terminate/" class="action-btn terminate">
+                    <i class="fas fa-times"></i> Terminate
+                </a>
+            `;
+        } else if (alert.alert_type === 'EXPIRING') {
+            buttons += `
+                <a href="/admin/employees/contract/${alert.contract_id}/renew/" class="action-btn renew">
+                    <i class="fas fa-redo"></i> Renew
+                </a>
+                <a href="/admin/employees/contract/${alert.contract_id}/change/" class="action-btn edit">
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+            `;
+        } else if (alert.alert_type === 'OVERLAP') {
+            buttons += `
+                <a href="/admin/employees/contract/${alert.contract_id}/resolve-overlap/" class="action-btn resolve">
+                    <i class="fas fa-tools"></i> Resolve
+                </a>
+            `;
+        } else {
+            buttons += `
+                <a href="/admin/employees/contract/${alert.contract_id}/change/" class="action-btn view">
+                    <i class="fas fa-eye"></i> View
+                </a>
+            `;
+        }
+        
+        buttons += `
+            <button class="action-btn dismiss" onclick="dismissAlert(${alert.id})">
+                <i class="fas fa-times"></i> Dismiss
+            </button>
+        `;
+        
+        return buttons;
+    }
+    
+    function updateAnalytics(analytics) {
+        const statValues = document.querySelectorAll('.stat-value');
+        if (statValues[0]) statValues[0].textContent = analytics.total_alerts || 0;
+        if (statValues[1]) statValues[1].textContent = analytics.resolved_today || 0;
+        if (statValues[2]) statValues[2].textContent = analytics.avg_resolution_time || '0';
+        if (statValues[3]) statValues[3].textContent = analytics.most_common_alert_type || 'None';
+    }
+    
+    function showCriticalAlertNotification(count) {
+        const notification = document.createElement('div');
+        notification.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>${count}</strong> new critical contract alert${count > 1 ? 's' : ''}!
+            <button onclick="this.parentElement.remove()" style="background: none; border: none; color: white; margin-left: 10px; cursor: pointer;">×</button>
+        `;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+            animation: slideInRight 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 300px;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }, 8000);
+    }
+    
+    function showNotification(message, type = 'info') {
+        const colors = {
+            success: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
+            error: 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)',
+            info: 'linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%)'
+        };
+        
+        const notification = document.createElement('div');
+        notification.innerHTML = `<i class="fas fa-info-circle"></i> ${message}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${colors[type]};
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            animation: slideInRight 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 4000);
+    }
+    
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    
+    function formatTimestamp(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffHours / 24);
+        
+        if (diffDays > 0) {
+            return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+        } else if (diffHours > 0) {
+            return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+        } else {
+            return 'Just now';
+        }
+    }
+    
+    function getCsrfToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+               document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '';
+    }
+    
+    // Add CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fade-out {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+        
+        .fade-in {
+            animation: fade-in 0.5s ease-in-out;
+        }
+        
+        .fade-out {
+            animation: fade-out 0.3s ease-in-out forwards;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Warn user before leaving if there are critical alerts
+    window.addEventListener('beforeunload', function(e) {
+        const criticalAlerts = document.querySelectorAll('.alert-item.critical:not([style*="display: none"])').length;
+        
+        if (criticalAlerts > 0) {
+            const message = `You have ${criticalAlerts} critical contract alert${criticalAlerts > 1 ? 's' : ''} that require immediate attention. Are you sure you want to leave?`;
+            e.returnValue = message;
+            return message;
+        }
+    });
+    </script>
+    {% endblock %}
+    
+    
+
+

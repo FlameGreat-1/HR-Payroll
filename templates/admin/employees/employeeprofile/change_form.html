@@ -1,0 +1,1008 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block extrahead %}{{ block.super }}
+<script src="{% static 'admin/js/core.js' %}"></script>
+{{ media }}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+{% endblock %}
+
+{% block extrajs %}{{ block.super }}
+<script src="{% static 'admin/js/admin/RelatedObjectLookups.js' %}"></script>
+<script src="{% static 'admin/js/actions.js' %}"></script>
+<script src="{% static 'admin/js/urlify.js' %}"></script>
+<script src="{% static 'admin/js/prepopulate.js' %}"></script>
+<script src="{% static 'admin/js/vendor/xregexp/xregexp.js' %}"></script>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-form{% endblock %}
+
+{% if not is_popup %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; {% if add %}{% blocktrans with name=opts.verbose_name %}Add {{ name }}{% endblocktrans %}{% else %}{{ original|truncatewords:"18" }}{% endif %}
+</div>
+{% endblock %}
+{% endif %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-card">
+        <div id="content-main">
+            {% block object-tools %}
+            {% if change %}{% if not is_popup %}
+              <ul class="object-tools">
+                {% block object-tools-items %}
+                  <li>
+                      <a href="{% url opts|admin_urlname:'history' original.pk|admin_urlquote %}" class="historylink">{% trans "History" %}</a>
+                  </li>
+                  {% if has_absolute_url %}
+                      <li><a href="{{ absolute_url }}" class="viewsitelink">{% trans "View on site" %}</a></li>
+                  {% endif %}
+                  {% if original.employment_status == 'PROBATION' %}
+                  <li>
+                      <a href="{% url 'admin:employees_employeeprofile_confirm' original.pk %}" class="confirmlink">Confirm Employee</a>
+                  </li>
+                  {% endif %}
+                {% endblock %}
+              </ul>
+            {% endif %}{% endif %}
+            {% endblock %}
+
+            {% if not add %}
+            <div class="employee-profile-header">
+                <div class="profile-info">
+                    <div class="profile-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="profile-details">
+                        <h2 class="employee-name">{{ original.user.get_full_name }}</h2>
+                        <div class="employee-meta">
+                            <span class="employee-id">{{ original.employee_id }}</span>
+                            <span class="separator">•</span>
+                            <span class="department">{{ original.user.department.name|default:"No Department" }}</span>
+                            <span class="separator">•</span>
+                            {% if original.employment_status == 'PROBATION' %}
+                                <span class="status-probation">{{ original.get_employment_status_display }}</span>
+                            {% elif original.employment_status == 'CONFIRMED' %}
+                                <span class="status-confirmed">{{ original.get_employment_status_display }}</span>
+                            {% elif original.employment_status == 'CONTRACT' %}
+                                <span class="status-contract">{{ original.get_employment_status_display }}</span>
+                            {% else %}
+                                <span class="status-inactive">{{ original.get_employment_status_display }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="service-info">
+                            <span class="service-years">{{ original.years_of_service }} years of service</span>
+                            {% if original.employment_status == 'PROBATION' and original.probation_end_date %}
+                                <span class="separator">•</span>
+                                <span class="probation-info">Probation ends {{ original.probation_end_date }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <form {% if has_file_field %}enctype="multipart/form-data" {% endif %}action="{{ form_url }}" method="post" id="{{ opts.model_name }}_form" novalidate>{% csrf_token %}{% block form_top %}{% endblock %}
+            <div>
+            {% if is_popup %}<input type="hidden" name="{{ is_popup_var }}" value="1">{% endif %}
+            {% if to_field %}<input type="hidden" name="{{ to_field_var }}" value="{{ to_field }}">{% endif %}
+            {% if save_on_top %}{% block submit_buttons_top %}{% submit_row %}{% endblock %}{% endif %}
+            {% if errors %}
+                <p class="errornote">
+                {% if errors|length == 1 %}{% trans "Please correct the error below." %}{% else %}{% trans "Please correct the errors below." %}{% endif %}
+                </p>
+                {{ adminform.form.non_field_errors }}
+            {% endif %}
+
+            <div class="form-sections">
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-user"></i> Basic Information</h3>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_user">Employee:</label>
+                                {{ adminform.form.user }}
+                                {% if adminform.form.user.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.user.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_employee_id">Employee ID:</label>
+                                {{ adminform.form.employee_id }}
+                                {% if adminform.form.employee_id.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.employee_id.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-briefcase"></i> Employment Details</h3>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_employment_status">Employment Status:</label>
+                                {{ adminform.form.employment_status }}
+                                {% if adminform.form.employment_status.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.employment_status.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_grade_level">Grade Level:</label>
+                                {{ adminform.form.grade_level }}
+                                {% if adminform.form.grade_level.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.grade_level.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_basic_salary">Basic Salary:</label>
+                                <div class="salary-input">
+                                    <span class="currency-symbol">$</span>
+                                    {{ adminform.form.basic_salary }}
+                                </div>
+                                {% if adminform.form.basic_salary.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.basic_salary.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_probation_end_date">Probation End Date:</label>
+                                {{ adminform.form.probation_end_date }}
+                                {% if adminform.form.probation_end_date.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.probation_end_date.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_confirmation_date">Confirmation Date:</label>
+                                {{ adminform.form.confirmation_date }}
+                                {% if adminform.form.confirmation_date.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.confirmation_date.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-university"></i> Banking Information</h3>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_bank_name">Bank Name:</label>
+                                {{ adminform.form.bank_name }}
+                                {% if adminform.form.bank_name.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.bank_name.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_bank_account_number">Account Number:</label>
+                                {{ adminform.form.bank_account_number }}
+                                {% if adminform.form.bank_account_number.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.bank_account_number.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_bank_branch">Bank Branch:</label>
+                                {{ adminform.form.bank_branch }}
+                                {% if adminform.form.bank_branch.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.bank_branch.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_tax_identification_number">Tax ID Number:</label>
+                                {{ adminform.form.tax_identification_number }}
+                                {% if adminform.form.tax_identification_number.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.tax_identification_number.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-heart"></i> Personal Information</h3>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_marital_status">Marital Status:</label>
+                                {{ adminform.form.marital_status }}
+                                {% if adminform.form.marital_status.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.marital_status.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_spouse_name">Spouse Name:</label>
+                                {{ adminform.form.spouse_name }}
+                                {% if adminform.form.spouse_name.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.spouse_name.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_number_of_children">Number of Children:</label>
+                                {{ adminform.form.number_of_children }}
+                                {% if adminform.form.number_of_children.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.number_of_children.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-map-marker-alt"></i> Work Details</h3>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_work_location">Work Location:</label>
+                                {{ adminform.form.work_location }}
+                                {% if adminform.form.work_location.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.work_location.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_reporting_time">Reporting Time:</label>
+                                {{ adminform.form.reporting_time }}
+                                {% if adminform.form.reporting_time.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.reporting_time.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                            <div class="form-field">
+                                <label for="id_shift_hours">Shift Hours:</label>
+                                {{ adminform.form.shift_hours }}
+                                {% if adminform.form.shift_hours.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.shift_hours.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="form-row-grid">
+                            <div class="form-field">
+                                <label for="id_is_active">Active Status:</label>
+                                {{ adminform.form.is_active }}
+                                {% if adminform.form.is_active.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in adminform.form.is_active.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% block inline_field_sets %}
+            {% if not add %}
+            <div class="inline-sections">
+                <div class="inline-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-graduation-cap"></i> Education Records</h3>
+                        <a href="{% url 'admin:employees_education_add' %}?employee={{ original.user.pk }}" class="add-inline-btn">
+                            <i class="fas fa-plus"></i> Add Education
+                        </a>
+                    </div>
+                    <div class="inline-content">
+                        {% if original.user.education_records.all %}
+                            <div class="inline-table">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Level</th>
+                                            <th>Qualification</th>
+                                            <th>Institution</th>
+                                            <th>Year</th>
+                                            <th>Verified</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for education in original.user.education_records.all %}
+                                        <tr>
+                                            <td>{{ education.get_education_level_display }}</td>
+                                            <td>{{ education.qualification }}</td>
+                                            <td>{{ education.institution }}</td>
+                                            <td>{{ education.completion_year|default:education.start_year }}</td>
+                                            <td>
+                                                {% if education.is_verified %}
+                                                    <span class="verified-badge">Verified</span>
+                                                {% else %}
+                                                    <span class="unverified-badge">Pending</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'admin:employees_education_change' education.pk %}" class="inline-edit-btn">Edit</a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="no-inline-data">
+                                <i class="fas fa-graduation-cap"></i>
+                                <p>No education records found</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="inline-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-file-contract"></i> Contract History</h3>
+                        <a href="{% url 'admin:employees_contract_add' %}?employee={{ original.user.pk }}" class="add-inline-btn">
+                            <i class="fas fa-plus"></i> Add Contract
+                        </a>
+                    </div>
+                    <div class="inline-content">
+                        {% if original.user.contracts.all %}
+                            <div class="inline-table">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Contract #</th>
+                                            <th>Type</th>
+                                            <th>Status</th>
+                                            <th>Start Date</th>
+                                            <th>End Date</th>
+                                            <th>Salary</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for contract in original.user.contracts.all %}
+                                        <tr>
+                                            <td>{{ contract.contract_number }}</td>
+                                            <td>{{ contract.get_contract_type_display }}</td>
+                                            <td>
+                                                {% if contract.status == 'ACTIVE' %}
+                                                    <span class="status-active">{{ contract.get_status_display }}</span>
+                                                {% elif contract.status == 'EXPIRED' %}
+                                                    <span class="status-inactive">{{ contract.get_status_display }}</span>
+                                                {% else %}
+                                                    <span class="status-suspended">{{ contract.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ contract.start_date }}</td>
+                                            <td>{{ contract.end_date|default:"Permanent" }}</td>
+                                            <td>${{ contract.basic_salary|floatformat:2 }}</td>
+                                            <td>
+                                                <a href="{% url 'admin:employees_contract_change' contract.pk %}" class="inline-edit-btn">Edit</a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="no-inline-data">
+                                <i class="fas fa-file-contract"></i>
+                                <p>No contracts found</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endblock %}
+
+            {% block submit_buttons_bottom %}{% submit_row %}{% endblock %}
+
+            {% block admin_change_form_document_ready %}
+                <script id="django-admin-form-add-constants"
+                        src="{% static 'admin/js/change_form.js' %}"
+                        {% if adminform and add %}
+                            data-model-name="{{ opts.model_name }}"
+                        {% endif %}
+                        async>
+                </script>
+            {% endblock %}
+
+            {% prepopulated_fields_js %}
+
+            </div>
+            </form>
+        </div>
+    </div>
+</div>
+<style>
+    .employee-profile-header {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 30px;
+        box-shadow: 0 6px 20px rgba(213, 0, 249, 0.3);
+    }
+    
+    .profile-info {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    
+    .profile-avatar i {
+        font-size: 64px;
+        color: #FFFFFF;
+    }
+    
+    .employee-name {
+        color: #FFFFFF;
+        font-size: 28px;
+        font-weight: 700;
+        margin: 0 0 8px 0;
+        font-family: 'Inter', 'Roboto', sans-serif;
+    }
+    
+    .employee-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+    
+    .employee-id {
+        background: rgba(255, 255, 255, 0.2);
+        color: #FFFFFF;
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .department {
+        color: #F1F1F1;
+        font-weight: 600;
+        font-size: 14px;
+    }
+    
+    .separator {
+        color: #E0E0E0;
+        font-weight: 300;
+    }
+    
+    .service-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .service-years, .probation-info {
+        color: #F1F1F1;
+        font-size: 13px;
+        font-weight: 500;
+    }
+    
+    .form-sections {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+    
+    .form-section {
+        background: #FFFFFF;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(213, 0, 249, 0.1);
+        overflow: hidden;
+    }
+    
+    .section-header {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        padding: 16px 24px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .section-header h3 {
+        color: #FFFFFF;
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .section-content {
+        padding: 24px;
+    }
+    
+    .form-row-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .form-row-grid:last-child {
+        margin-bottom: 0;
+    }
+    
+    .form-field {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .form-field label {
+        font-family: 'Inter', 'Roboto', sans-serif;
+        font-weight: 600;
+        color: #2B2B2B;
+        font-size: 14px;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .form-field input, .form-field select, .form-field textarea {
+        width: 100%;
+        border: 2px solid #E5E7EB;
+        border-radius: 8px;
+        padding: 14px 16px;
+        font-family: 'Inter', 'Roboto', sans-serif;
+        font-weight: 500;
+        font-size: 15px;
+        background: #FFFFFF;
+        color: #2B2B2B;
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+    }
+    
+    .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
+        border-color: #3D5AFE;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(61, 90, 254, 0.1);
+        background: #FAFBFC;
+    }
+    
+    .salary-input {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    
+    .currency-symbol {
+        position: absolute;
+        left: 16px;
+        color: #6B7280;
+        font-weight: 600;
+        z-index: 1;
+    }
+    
+    .salary-input input {
+        padding-left: 40px;
+    }
+    
+    .inline-sections {
+        margin-top: 30px;
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+    
+    .inline-section {
+        background: #FFFFFF;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(213, 0, 249, 0.1);
+        overflow: hidden;
+    }
+    
+    .inline-section .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .add-inline-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: #FFFFFF;
+        padding: 8px 16px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .add-inline-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        color: #FFFFFF;
+    }
+    
+    .inline-content {
+        padding: 24px;
+    }
+    
+    .inline-table table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: 'Inter', 'Roboto', sans-serif;
+    }
+    
+    .inline-table th {
+        background: #F3F4F6;
+        color: #2B2B2B;
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 12px 16px;
+        text-align: left;
+        border-bottom: 2px solid #E5E7EB;
+    }
+    
+    .inline-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #F3F4F6;
+        font-size: 14px;
+        color: #2B2B2B;
+    }
+    
+    .inline-table tr:hover {
+        background: #FAFBFC;
+    }
+    
+    .verified-badge {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+        color: #FFFFFF;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .unverified-badge {
+        background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+        color: #FFFFFF;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .inline-edit-btn {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        color: #FFFFFF;
+        padding: 6px 12px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+    }
+    
+    .inline-edit-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(213, 0, 249, 0.4);
+        color: #FFFFFF;
+    }
+    
+    .no-inline-data {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6B7280;
+    }
+    
+    .no-inline-data i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        color: #D1D5DB;
+    }
+    
+    .no-inline-data p {
+        font-size: 16px;
+        font-weight: 500;
+    }
+    
+    .confirmlink {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%) !important;
+        color: #FFFFFF !important;
+    }
+    
+    .confirmlink:hover {
+        background: linear-gradient(90deg, #059669 0%, #047857 100%) !important;
+        color: #FFFFFF !important;
+    }
+    
+    .status-probation {
+        background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+        color: #FFFFFF;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .status-confirmed {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+        color: #FFFFFF;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .status-contract {
+        background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%);
+        color: #FFFFFF;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .status-inactive {
+        background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+        color: #FFFFFF;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .status-active {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+        color: #FFFFFF;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .status-suspended {
+        background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+        color: #FFFFFF;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    @media (max-width: 768px) {
+        .profile-info {
+            flex-direction: column;
+            text-align: center;
+            gap: 16px;
+        }
+        
+        .employee-name {
+            font-size: 24px;
+        }
+        
+        .employee-meta {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .form-row-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        .section-content {
+            padding: 16px;
+        }
+        
+        .inline-content {
+            padding: 16px;
+        }
+        
+        .inline-table {
+            overflow-x: auto;
+        }
+        
+        .inline-table table {
+            min-width: 600px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .employee-profile-header {
+            padding: 16px;
+        }
+        
+        .profile-avatar i {
+            font-size: 48px;
+        }
+        
+        .employee-name {
+            font-size: 20px;
+        }
+        
+        .section-header {
+            padding: 12px 16px;
+        }
+        
+        .section-content {
+            padding: 12px;
+        }
+    }
+    </style>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const employmentStatusField = document.getElementById('id_employment_status');
+        const probationEndDateField = document.getElementById('id_probation_end_date');
+        const confirmationDateField = document.getElementById('id_confirmation_date');
+        const maritalStatusField = document.getElementById('id_marital_status');
+        const spouseNameField = document.getElementById('id_spouse_name');
+        
+        function toggleProbationFields() {
+            if (employmentStatusField && probationEndDateField) {
+                const isProbation = employmentStatusField.value === 'PROBATION';
+                const probationRow = probationEndDateField.closest('.form-field');
+                if (probationRow) {
+                    probationRow.style.display = isProbation ? 'flex' : 'none';
+                }
+            }
+            
+            if (employmentStatusField && confirmationDateField) {
+                const isConfirmed = employmentStatusField.value === 'CONFIRMED';
+                const confirmationRow = confirmationDateField.closest('.form-field');
+                if (confirmationRow) {
+                    confirmationRow.style.display = isConfirmed ? 'flex' : 'none';
+                }
+            }
+        }
+        
+        function toggleSpouseField() {
+            if (maritalStatusField && spouseNameField) {
+                const isMarried = maritalStatusField.value === 'MARRIED';
+                const spouseRow = spouseNameField.closest('.form-field');
+                if (spouseRow) {
+                    spouseRow.style.display = isMarried ? 'flex' : 'none';
+                }
+            }
+        }
+        
+        if (employmentStatusField) {
+            employmentStatusField.addEventListener('change', toggleProbationFields);
+            toggleProbationFields();
+        }
+        
+        if (maritalStatusField) {
+            maritalStatusField.addEventListener('change', toggleSpouseField);
+            toggleSpouseField();
+        }
+        
+        const salaryInput = document.getElementById('id_basic_salary');
+        if (salaryInput) {
+            salaryInput.addEventListener('input', function() {
+                let value = this.value.replace(/[^\d.]/g, '');
+                if (value.split('.').length > 2) {
+                    value = value.substring(0, value.lastIndexOf('.'));
+                }
+                this.value = value;
+            });
+        }
+        
+        const form = document.getElementById('employeeprofile_form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const requiredFields = form.querySelectorAll('input[required], select[required]');
+                let hasErrors = false;
+                
+                requiredFields.forEach(field => {
+                    if (!field.value.trim()) {
+                        field.style.borderColor = '#EF4444';
+                        hasErrors = true;
+                    } else {
+                        field.style.borderColor = '#E5E7EB';
+                    }
+                });
+                
+                if (hasErrors) {
+                    e.preventDefault();
+                    alert('Please fill in all required fields.');
+                }
+            });
+        }
+    });
+    </script>
+    {% endblock %}
+    
+
+

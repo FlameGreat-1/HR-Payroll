@@ -361,6 +361,93 @@ html, body {
     margin: 30px 0;
 }
 
+/* Employee Status Specific Badges */
+.status-probation {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    color: var(--text-white);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.status-confirmed {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: var(--text-white);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.status-contract {
+    background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%);
+    color: var(--text-white);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+/* Contract Expiry Alerts */
+.contract-expiring-soon {
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
+    border-left: 4px solid #F59E0B;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 10px 0;
+    font-weight: var(--font-weight-medium);
+}
+
+.probation-ending-soon {
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
+    border-left: 4px solid #EF4444;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 10px 0;
+    font-weight: var(--font-weight-medium);
+}
+
+/* Employee Profile Specific Cards */
+.employee-card {
+    background: var(--text-white);
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    padding: 20px;
+    margin: 15px 0;
+    border: 1px solid rgba(213, 0, 249, 0.1);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.employee-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--primary-gradient);
+}
+
+.employee-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--magenta-glow-strong);
+}
+
 /* ===== TABLES & RESULTS ===== */
 .results {
     background: var(--text-white);

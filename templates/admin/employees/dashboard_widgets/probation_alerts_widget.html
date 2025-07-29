@@ -1,0 +1,1023 @@
+{% load i18n static %}
+
+<div class="probation-alerts-widget">
+    <div class="widget-header">
+        <h3><i class="fas fa-exclamation-triangle"></i> Probation Alerts</h3>
+        <div class="widget-actions">
+            <a href="{% url 'admin:employees_employeeprofile_changelist' %}?employment_status=PROBATION" class="view-all-btn">
+                <i class="fas fa-external-link-alt"></i> View All
+            </a>
+            <button class="refresh-btn" onclick="refreshProbationAlerts()">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="widget-content">
+        <div class="alerts-summary">
+            <div class="summary-item urgent">
+                <div class="summary-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="summary-details">
+                    <div class="summary-number">{{ ending_this_week|default:0 }}</div>
+                    <div class="summary-label">Ending This Week</div>
+                </div>
+            </div>
+            
+            <div class="summary-item warning">
+                <div class="summary-icon">
+                    <i class="fas fa-calendar-alt"></i>
+                </div>
+                <div class="summary-details">
+                    <div class="summary-number">{{ ending_this_month|default:0 }}</div>
+                    <div class="summary-label">Ending This Month</div>
+                </div>
+            </div>
+            
+            <div class="summary-item info">
+                <div class="summary-icon">
+                    <i class="fas fa-user-clock"></i>
+                </div>
+                <div class="summary-details">
+                    <div class="summary-number">{{ total_on_probation|default:0 }}</div>
+                    <div class="summary-label">Total on Probation</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="urgent-alerts">
+            <h4><i class="fas fa-fire"></i> Urgent - Ending Within 7 Days</h4>
+            <div class="alerts-list">
+                {% for employee in urgent_probation_alerts %}
+                <div class="alert-item urgent">
+                    <div class="alert-priority">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <div class="employee-info">
+                        <div class="employee-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="employee-details">
+                            <div class="employee-name">{{ employee.user.get_full_name }}</div>
+                            <div class="employee-meta">
+                                <span class="employee-id">{{ employee.employee_id }}</span>
+                                <span class="separator">•</span>
+                                <span class="department">{{ employee.user.department.name|default:"No Department" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="probation-info">
+                        <div class="probation-end">{{ employee.probation_end_date|date:"M d, Y" }}</div>
+                        <div class="days-remaining">
+                            {% with days_left=employee.probation_end_date|timeuntil %}
+                                {% if days_left|slice:":1" == "0" %}
+                                    <span class="ending-today">Ending Today</span>
+                                {% else %}
+                                    <span class="days-left">{{ days_left|slice:":1" }} day{{ days_left|slice:":1"|add:"0"|pluralize }} left</span>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    <div class="alert-actions">
+                        <a href="{% url 'admin:employees_employeeprofile_confirm' employee.pk %}" class="confirm-btn">
+                            <i class="fas fa-check"></i> Confirm
+                        </a>
+                        <a href="{% url 'admin:employees_employeeprofile_change' employee.pk %}" class="edit-btn">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-urgent-alerts">
+                    <i class="fas fa-check-circle"></i>
+                    <p>No urgent probation alerts</p>
+                    <small>All probation periods are on track</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="upcoming-alerts">
+            <h4><i class="fas fa-calendar-week"></i> Upcoming - Ending Within 30 Days</h4>
+            <div class="alerts-list">
+                {% for employee in upcoming_probation_alerts %}
+                <div class="alert-item upcoming">
+                    <div class="alert-priority">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                    <div class="employee-info">
+                        <div class="employee-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="employee-details">
+                            <div class="employee-name">{{ employee.user.get_full_name }}</div>
+                            <div class="employee-meta">
+                                <span class="employee-id">{{ employee.employee_id }}</span>
+                                <span class="separator">•</span>
+                                <span class="department">{{ employee.user.department.name|default:"No Department" }}</span>
+                                <span class="separator">•</span>
+                                <span class="hire-date">Hired {{ employee.user.hire_date|date:"M d, Y" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="probation-info">
+                        <div class="probation-end">{{ employee.probation_end_date|date:"M d, Y" }}</div>
+                        <div class="days-remaining">
+                            {% with days_left=employee.probation_end_date|timeuntil %}
+                                <span class="days-left">{{ days_left|slice:":2" }} days left</span>
+                            {% endwith %}
+                        </div>
+                    </div>
+                    <div class="alert-actions">
+                        <a href="{% url 'admin:employees_employeeprofile_change' employee.pk %}" class="view-btn">
+                            <i class="fas fa-eye"></i> View
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-upcoming-alerts">
+                    <i class="fas fa-calendar-check"></i>
+                    <p>No upcoming probation endings</p>
+                    <small>Next 30 days are clear</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="overdue-alerts">
+            <h4><i class="fas fa-times-circle"></i> Overdue - Past Probation End Date</h4>
+            <div class="alerts-list">
+                {% for employee in overdue_probation_alerts %}
+                <div class="alert-item overdue">
+                    <div class="alert-priority">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div class="employee-info">
+                        <div class="employee-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="employee-details">
+                            <div class="employee-name">{{ employee.user.get_full_name }}</div>
+                            <div class="employee-meta">
+                                <span class="employee-id">{{ employee.employee_id }}</span>
+                                <span class="separator">•</span>
+                                <span class="department">{{ employee.user.department.name|default:"No Department" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="probation-info">
+                        <div class="probation-end overdue">{{ employee.probation_end_date|date:"M d, Y" }}</div>
+                        <div class="days-remaining">
+                            {% with days_overdue=employee.probation_end_date|timesince %}
+                                <span class="overdue-text">{{ days_overdue|slice:":2" }} overdue</span>
+                            {% endwith %}
+                        </div>
+                    </div>
+                    <div class="alert-actions">
+                        <a href="{% url 'admin:employees_employeeprofile_confirm' employee.pk %}" class="confirm-btn urgent">
+                            <i class="fas fa-check"></i> Confirm Now
+                        </a>
+                        <a href="{% url 'admin:employees_employeeprofile_change' employee.pk %}" class="edit-btn">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-overdue-alerts">
+                    <i class="fas fa-thumbs-up"></i>
+                    <p>No overdue probation periods</p>
+                    <small>All probation periods are up to date</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="probation-timeline">
+            <h4><i class="fas fa-chart-line"></i> Probation Timeline (Next 90 Days)</h4>
+            <div class="timeline-container">
+                {% for week in probation_timeline %}
+                <div class="timeline-week">
+                    <div class="week-header">
+                        <span class="week-label">{{ week.start_date|date:"M d" }} - {{ week.end_date|date:"M d" }}</span>
+                        <span class="week-count">{{ week.ending_count }} ending</span>
+                    </div>
+                    {% if week.employees %}
+                    <div class="week-employees">
+                        {% for employee in week.employees %}
+                        <div class="timeline-employee">
+                            <span class="employee-name">{{ employee.user.get_full_name }}</span>
+                            <span class="employee-department">{{ employee.user.department.name|default:"No Dept" }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="no-timeline-data">
+                    <i class="fas fa-calendar"></i>
+                    <p>No probation periods ending in the next 90 days</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+    .probation-alerts-widget {
+        background: #FFFFFF;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(213, 0, 249, 0.1);
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    
+    .widget-header {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .widget-header h3 {
+        color: #FFFFFF;
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .widget-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .view-all-btn, .refresh-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: #FFFFFF;
+        padding: 6px 12px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .view-all-btn:hover, .refresh-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        color: #FFFFFF;
+    }
+    
+    .widget-content {
+        padding: 20px;
+    }
+    
+    .alerts-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .summary-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid #E5E7EB;
+    }
+    
+    .summary-item.urgent {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%);
+        border-color: rgba(239, 68, 68, 0.2);
+    }
+    
+    .summary-item.warning {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%);
+        border-color: rgba(245, 158, 11, 0.2);
+    }
+    
+    .summary-item.info {
+        background: linear-gradient(135deg, rgba(61, 90, 254, 0.1) 0%, rgba(213, 0, 249, 0.05) 100%);
+        border-color: rgba(61, 90, 254, 0.2);
+    }
+    
+    .summary-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+    }
+    
+    .summary-item.urgent .summary-icon {
+        background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+        color: #FFFFFF;
+    }
+    
+    .summary-item.warning .summary-icon {
+        background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+        color: #FFFFFF;
+    }
+    
+    .summary-item.info .summary-icon {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        color: #FFFFFF;
+    }
+    
+    .summary-details {
+        flex: 1;
+    }
+    
+    .summary-number {
+        font-size: 20px;
+        font-weight: 800;
+        color: #2B2B2B;
+        margin-bottom: 4px;
+        font-family: 'Inter', 'Roboto', sans-serif;
+    }
+    
+    .summary-label {
+        font-size: 11px;
+        color: #6B7280;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .urgent-alerts, .upcoming-alerts, .overdue-alerts, .probation-timeline {
+        margin-bottom: 24px;
+    }
+    
+    .urgent-alerts h4, .upcoming-alerts h4, .overdue-alerts h4, .probation-timeline h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #2B2B2B;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .urgent-alerts h4 {
+        color: #EF4444;
+    }
+    
+    .upcoming-alerts h4 {
+        color: #F59E0B;
+    }
+    
+    .overdue-alerts h4 {
+        color: #DC2626;
+    }
+    
+    .alerts-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .alert-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid #E5E7EB;
+        background: #FFFFFF;
+        transition: all 0.3s ease;
+    }
+    
+    .alert-item:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
+    }
+    
+    .alert-item.urgent {
+        border-left: 4px solid #EF4444;
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(255, 255, 255, 1) 100%);
+    }
+    
+    .alert-item.upcoming {
+        border-left: 4px solid #F59E0B;
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(255, 255, 255, 1) 100%);
+    }
+    
+    .alert-item.overdue {
+        border-left: 4px solid #DC2626;
+        background: linear-gradient(135deg, rgba(220, 38, 38, 0.08) 0%, rgba(255, 255, 255, 1) 100%);
+    }
+    
+    .alert-priority {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+    }
+    
+    .alert-item.urgent .alert-priority {
+        background: #EF4444;
+        color: #FFFFFF;
+    }
+    
+    .alert-item.upcoming .alert-priority {
+        background: #F59E0B;
+        color: #FFFFFF;
+    }
+    
+    .alert-item.overdue .alert-priority {
+        background: #DC2626;
+        color: #FFFFFF;
+    }
+    
+    .employee-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+    }
+    
+    .employee-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        color: #FFFFFF;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+    }
+    
+    .employee-details {
+        flex: 1;
+    }
+    
+    .employee-name {
+        font-weight: 600;
+        color: #2B2B2B;
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+    
+    .employee-meta {
+        font-size: 11px;
+        color: #6B7280;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+    
+    .employee-id {
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .separator {
+        color: #D1D5DB;
+    }
+    
+    .probation-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        min-width: 100px;
+    }
+    
+    .probation-end {
+        font-weight: 600;
+        color: #2B2B2B;
+        font-size: 12px;
+    }
+    
+    .probation-end.overdue {
+        color: #DC2626;
+    }
+    
+    .days-remaining {
+        font-size: 10px;
+        text-align: center;
+    }
+    
+    .ending-today {
+        background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+        color: #FFFFFF;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        animation: pulse 2s infinite;
+    }
+    
+    .days-left {
+        background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+        color: #FFFFFF;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .overdue-text {
+        background: linear-gradient(90deg, #DC2626 0%, #B91C1C 100%);
+        color: #FFFFFF;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .alert-actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+    
+    .confirm-btn, .edit-btn, .view-btn {
+        padding: 6px 10px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .confirm-btn {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+        color: #FFFFFF;
+    }
+    
+    .confirm-btn.urgent {
+        background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+        animation: pulse 2s infinite;
+    }
+    
+    .edit-btn {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        color: #FFFFFF;
+    }
+    
+    .view-btn {
+        background: #2B2B2B;
+        color: #FFFFFF;
+    }
+    
+    .confirm-btn:hover, .edit-btn:hover, .view-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        color: #FFFFFF;
+    }
+
+    .no-urgent-alerts, .no-upcoming-alerts, .no-overdue-alerts, .no-timeline-data {
+        text-align: center;
+        padding: 30px 20px;
+        color: #6B7280;
+        background: #F8F9FA;
+        border-radius: 8px;
+        border: 1px solid #E5E7EB;
+    }
+    
+    .no-urgent-alerts i, .no-upcoming-alerts i, .no-overdue-alerts i, .no-timeline-data i {
+        font-size: 32px;
+        margin-bottom: 12px;
+        color: #D1D5DB;
+    }
+    
+    .no-urgent-alerts p, .no-upcoming-alerts p, .no-overdue-alerts p, .no-timeline-data p {
+        font-weight: 600;
+        margin-bottom: 4px;
+        color: #374151;
+    }
+    
+    .no-urgent-alerts small, .no-upcoming-alerts small, .no-overdue-alerts small {
+        color: #9CA3AF;
+        font-size: 11px;
+    }
+    
+    .timeline-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 250px;
+        overflow-y: auto;
+    }
+    
+    .timeline-week {
+        border: 1px solid #E5E7EB;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #FFFFFF;
+    }
+    
+    .week-header {
+        background: #F3F4F6;
+        padding: 8px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #E5E7EB;
+    }
+    
+    .week-label {
+        font-weight: 600;
+        color: #374151;
+        font-size: 12px;
+    }
+    
+    .week-count {
+        background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+        color: #FFFFFF;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .week-employees {
+        padding: 8px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .timeline-employee {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+        font-size: 11px;
+    }
+    
+    .timeline-employee .employee-name {
+        font-weight: 600;
+        color: #2B2B2B;
+    }
+    
+    .timeline-employee .employee-department {
+        color: #6B7280;
+        font-style: italic;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    
+    @media (max-width: 768px) {
+        .alerts-summary {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        
+        .summary-item {
+            padding: 12px;
+        }
+        
+        .summary-number {
+            font-size: 18px;
+        }
+        
+        .alert-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        
+        .employee-info {
+            width: 100%;
+        }
+        
+        .probation-info {
+            width: 100%;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .alert-actions {
+            width: 100%;
+            justify-content: flex-end;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .widget-content {
+            padding: 16px;
+        }
+        
+        .alerts-summary {
+            gap: 8px;
+        }
+        
+        .summary-item {
+            padding: 10px;
+        }
+        
+        .alert-item {
+            padding: 10px;
+        }
+        
+        .employee-meta {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+        }
+        
+        .timeline-container {
+            max-height: 200px;
+        }
+    }
+    
+    .widget-content::-webkit-scrollbar,
+    .alerts-list::-webkit-scrollbar,
+    .timeline-container::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .widget-content::-webkit-scrollbar-track,
+    .alerts-list::-webkit-scrollbar-track,
+    .timeline-container::-webkit-scrollbar-track {
+        background: #F3F4F6;
+        border-radius: 3px;
+    }
+    
+    .widget-content::-webkit-scrollbar-thumb,
+    .alerts-list::-webkit-scrollbar-thumb,
+    .timeline-container::-webkit-scrollbar-thumb {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        border-radius: 3px;
+    }
+    
+    .widget-content::-webkit-scrollbar-thumb:hover,
+    .alerts-list::-webkit-scrollbar-thumb:hover,
+    .timeline-container::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(90deg, #2D4AEE 0%, #C500E9 100%);
+    }
+    </style>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initProbationAlerts();
+        setupAlertNotifications();
+        setupAutoRefresh();
+    });
+    
+    function initProbationAlerts() {
+        const urgentAlerts = document.querySelectorAll('.alert-item.urgent');
+        const overdueAlerts = document.querySelectorAll('.alert-item.overdue');
+        
+        if (urgentAlerts.length > 0) {
+            showUrgentNotification(urgentAlerts.length);
+        }
+        
+        if (overdueAlerts.length > 0) {
+            showOverdueNotification(overdueAlerts.length);
+        }
+        
+        setupConfirmButtons();
+        setupAlertHovers();
+    }
+    
+    function showUrgentNotification(count) {
+        const notification = document.createElement('div');
+        notification.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>${count}</strong> probation period${count > 1 ? 's' : ''} ending within 7 days!
+        `;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+            animation: slideInRight 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 300);
+        }, 5000);
+    }
+    
+    function showOverdueNotification(count) {
+        const notification = document.createElement('div');
+        notification.innerHTML = `
+            <i class="fas fa-times-circle"></i>
+            <strong>${count}</strong> overdue probation period${count > 1 ? 's' : ''} require immediate attention!
+        `;
+        notification.style.cssText = `
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: linear-gradient(90deg, #DC2626 0%, #B91C1C 100%);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+            animation: slideInRight 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 300);
+        }, 7000);
+    }
+    
+    function setupConfirmButtons() {
+        const confirmButtons = document.querySelectorAll('.confirm-btn');
+        confirmButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const employeeName = this.closest('.alert-item').querySelector('.employee-name').textContent;
+                const confirmAction = confirm(`Are you sure you want to confirm ${employeeName}'s employment?`);
+                
+                if (confirmAction) {
+                    const loadingSpinner = document.createElement('i');
+                    loadingSpinner.className = 'fas fa-spinner fa-spin';
+                    this.innerHTML = '';
+                    this.appendChild(loadingSpinner);
+                    this.appendChild(document.createTextNode(' Processing...'));
+                    this.style.pointerEvents = 'none';
+                    
+                    window.location.href = this.href;
+                }
+            });
+        });
+    }
+    
+    function setupAlertHovers() {
+        const alertItems = document.querySelectorAll('.alert-item');
+        alertItems.forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-2px)';
+                this.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.15)';
+            });
+            
+            item.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+                this.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+            });
+        });
+    }
+    
+    function setupAlertNotifications() {
+        const endingTodayElements = document.querySelectorAll('.ending-today');
+        endingTodayElements.forEach(element => {
+            element.style.animation = 'pulse 1.5s infinite';
+        });
+        
+        const urgentConfirmButtons = document.querySelectorAll('.confirm-btn.urgent');
+        urgentConfirmButtons.forEach(button => {
+            button.style.animation = 'pulse 2s infinite';
+        });
+    }
+    
+    function setupAutoRefresh() {
+        setInterval(() => {
+            const now = new Date();
+            const hours = now.getHours();
+            
+            if (hours >= 9 && hours <= 17) {
+                refreshProbationAlerts();
+            }
+        }, 300000);
+    }
+    
+    function refreshProbationAlerts() {
+        const refreshBtn = document.querySelector('.refresh-btn');
+        const icon = refreshBtn.querySelector('i');
+        
+        icon.classList.add('fa-spin');
+        refreshBtn.disabled = true;
+        
+        fetch('/admin/employees/dashboard/refresh-probation-alerts/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateAlertCounts(data);
+                    if (data.new_urgent_alerts > 0) {
+                        showUrgentNotification(data.new_urgent_alerts);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error refreshing probation alerts:', error);
+                showErrorNotification('Failed to refresh probation alerts');
+            })
+            .finally(() => {
+                icon.classList.remove('fa-spin');
+                refreshBtn.disabled = false;
+            });
+    }
+    
+    function updateAlertCounts(data) {
+        const summaryNumbers = document.querySelectorAll('.summary-number');
+        if (summaryNumbers[0]) summaryNumbers[0].textContent = data.ending_this_week || 0;
+        if (summaryNumbers[1]) summaryNumbers[1].textContent = data.ending_this_month || 0;
+        if (summaryNumbers[2]) summaryNumbers[2].textContent = data.total_on_probation || 0;
+    }
+    
+    function showErrorNotification(message) {
+        const notification = document.createElement('div');
+        notification.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 300);
+        }, 3000);
+    }
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    window.addEventListener('beforeunload', function() {
+        const urgentAlerts = document.querySelectorAll('.alert-item.urgent').length;
+        const overdueAlerts = document.querySelectorAll('.alert-item.overdue').length;
+        
+        if (urgentAlerts > 0 || overdueAlerts > 0) {
+            return 'You have pending probation alerts that require attention. Are you sure you want to leave?';
+        }
+    });
+    </script>
+    
+    

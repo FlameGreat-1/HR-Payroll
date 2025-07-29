@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to {{ company_name }}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <div style="background: linear-gradient(90deg, #007cba 0%, #005a87 100%); padding: 30px 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">
+                Welcome to {{ company_name }}!
+            </h1>
+            <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">
+                We're excited to have you join our team
+            </p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 30px 20px;">
+            <h2 style="color: #333; margin: 0 0 20px 0; font-size: 22px;">
+                Hello {{ employee.user.first_name }}!
+            </h2>
+            
+            <p style="color: #555; line-height: 1.6; margin: 0 0 20px 0; font-size: 16px;">
+                Congratulations on joining {{ company_name }} as a <strong>{{ employee.user.job_title }}</strong> 
+                in the {{ employee.user.department.name }} department. We're thrilled to welcome you to our team!
+            </p>
+
+            <!-- Employee Details -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">Your Employment Details</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600; width: 40%;">Employee ID:</td>
+                        <td style="padding: 8px 0; color: #333;">{{ employee.employee_id }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Start Date:</td>
+                        <td style="padding: 8px 0; color: #333;">{{ employee.user.hire_date|date:"F d, Y" }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Department:</td>
+                        <td style="padding: 8px 0; color: #333;">{{ employee.user.department.name }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Position:</td>
+                        <td style="padding: 8px 0; color: #333;">{{ employee.user.job_title }}</td>
+                    </tr>
+                    {% if employee.user.manager %}
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Manager:</td>
+                        <td style="padding: 8px 0; color: #333;">{{ employee.user.manager.get_full_name }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+
+            <!-- Next Steps -->
+            <div style="background: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #007cba;">
+                <h3 style="color: #007cba; margin: 0 0 15px 0; font-size: 18px;">Next Steps</h3>
+                <ul style="color: #333; line-height: 1.6; margin: 0; padding-left: 20px;">
+                    <li style="margin-bottom: 8px;">Complete your employee profile in our HR system</li>
+                    <li style="margin-bottom: 8px;">Attend the new employee orientation session</li>
+                    <li style="margin-bottom: 8px;">Set up your workspace and IT equipment</li>
+                    <li style="margin-bottom: 8px;">Meet with your manager to discuss your role and expectations</li>
+                    <li style="margin-bottom: 8px;">Review the employee handbook and company policies</li>
+                </ul>
+            </div>
+
+            <!-- Login Information -->
+            {% if login_credentials %}
+            <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                <h3 style="color: #856404; margin: 0 0 15px 0; font-size: 18px;">Your Login Credentials</h3>
+                <p style="color: #333; margin: 0 0 10px 0;">
+                    <strong>Username:</strong> {{ employee.user.username }}<br>
+                    <strong>Temporary Password:</strong> {{ temp_password }}
+                </p>
+                <p style="color: #856404; font-size: 14px; margin: 10px 0 0 0; font-style: italic;">
+                    Please change your password after your first login for security purposes.
+                </p>
+            </div>
+            {% endif %}
+
+            <!-- Contact Information -->
+            <div style="margin: 30px 0 20px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">Need Help?</h3>
+                <p style="color: #555; line-height: 1.6; margin: 0;">
+                    If you have any questions or need assistance, please don't hesitate to reach out:
+                </p>
+                <ul style="color: #555; line-height: 1.6; margin: 10px 0 0 0; padding-left: 20px;">
+                    <li>HR Department: {{ hr_email|default:"hr@company.com" }}</li>
+                    <li>IT Support: {{ it_email|default:"it@company.com" }}</li>
+                    {% if employee.user.manager %}
+                    <li>Your Manager: {{ employee.user.manager.email }}</li>
+                    {% endif %}
+                </ul>
+            </div>
+
+            <p style="color: #555; line-height: 1.6; margin: 20px 0 0 0; font-size: 16px;">
+                We look forward to working with you and wish you great success in your new role!
+            </p>
+
+            <p style="color: #555; margin: 30px 0 0 0; font-size: 16px;">
+                Best regards,<br>
+                <strong>{{ company_name }} HR Team</strong>
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #dee2e6;">
+            <p style="color: #666; margin: 0; font-size: 14px;">
+                {{ company_name }} | {{ company_address|default:"" }}
+            </p>
+            <p style="color: #666; margin: 5px 0 0 0; font-size: 12px;">
+                This is an automated message. Please do not reply to this email.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

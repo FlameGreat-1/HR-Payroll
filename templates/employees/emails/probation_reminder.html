@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Probation Period Reminder</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <div style="background: linear-gradient(90deg, #ffc107 0%, #fd7e14 100%); padding: 30px 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 600;">
+                Probation Period Update
+            </h1>
+            <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">
+                Important information about your probation period
+            </p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 30px 20px;">
+            <h2 style="color: #333; margin: 0 0 20px 0; font-size: 22px;">
+                Dear {{ employee.user.first_name }},
+            </h2>
+            
+            <p style="color: #555; line-height: 1.6; margin: 0 0 20px 0; font-size: 16px;">
+                This is a friendly reminder regarding your probation period with {{ company_name }}. 
+                {% if reminder_type == 'ending_soon' %}
+                Your probation period is ending soon and we wanted to update you on the next steps.
+                {% elif reminder_type == 'midpoint' %}
+                You have reached the midpoint of your probation period. This is a good time to review your progress.
+                {% elif reminder_type == 'extension' %}
+                We are writing to inform you about an extension to your probation period.
+                {% endif %}
+            </p>
+
+            <!-- Probation Details -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">Probation Period Details</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600; width: 40%;">Start Date:</td>
+                        <td style="padding: 8px 0; color: #333;">{{ employee.user.hire_date|date:"F d, Y" }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">End Date:</td>
+                        <td style="padding: 8px 0; color: #333;">{{ employee.probation_end_date|date:"F d, Y" }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Days Remaining:</td>
+                        <td style="padding: 8px 0; color: #333; font-weight: 600;">{{ days_remaining }} days</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Current Status:</td>
+                        <td style="padding: 8px 0;">
+                            <span style="background: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase;">
+                                {{ employee.get_employment_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            {% if reminder_type == 'ending_soon' %}
+            <!-- Ending Soon Content -->
+            <div style="background: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #007cba;">
+                <h3 style="color: #007cba; margin: 0 0 15px 0; font-size: 18px;">Probation Period Ending Soon</h3>
+                <p style="color: #333; line-height: 1.6; margin: 0 0 15px 0;">
+                    Your probation period will end on <strong>{{ employee.probation_end_date|date:"F d, Y" }}</strong>. 
+                    Here's what to expect:
+                </p>
+                <ul style="color: #333; line-height: 1.6; margin: 0; padding-left: 20px;">
+                    <li style="margin-bottom: 8px;">Final probation review meeting with your manager</li>
+                    <li style="margin-bottom: 8px;">Performance evaluation and feedback session</li>
+                    <li style="margin-bottom: 8px;">Discussion about your permanent employment status</li>
+                    <li style="margin-bottom: 8px;">Confirmation of your role and responsibilities</li>
+                </ul>
+            </div>
+
+            {% elif reminder_type == 'midpoint' %}
+            <!-- Midpoint Review Content -->
+            <div style="background: #d1ecf1; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #17a2b8;">
+                <h3 style="color: #17a2b8; margin: 0 0 15px 0; font-size: 18px;">Midpoint Review</h3>
+                <p style="color: #333; line-height: 1.6; margin: 0 0 15px 0;">
+                    You've completed half of your probation period! This is an excellent time to:
+                </p>
+                <ul style="color: #333; line-height: 1.6; margin: 0; padding-left: 20px;">
+                    <li style="margin-bottom: 8px;">Reflect on your achievements and learning so far</li>
+                    <li style="margin-bottom: 8px;">Schedule a check-in meeting with your manager</li>
+                    <li style="margin-bottom: 8px;">Discuss any challenges or support you might need</li>
+                    <li style="margin-bottom: 8px;">Set goals for the remaining probation period</li>
+                </ul>
+            </div>
+
+            {% elif reminder_type == 'extension' %}
+            <!-- Extension Content -->
+            <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                <h3 style="color: #856404; margin: 0 0 15px 0; font-size: 18px;">Probation Period Extension</h3>
+                <p style="color: #333; line-height: 1.6; margin: 0 0 15px 0;">
+                    Your probation period has been extended to <strong>{{ new_probation_end_date|date:"F d, Y" }}</strong>. 
+                    This extension provides additional time for:
+                </p>
+                <ul style="color: #333; line-height: 1.6; margin: 0; padding-left: 20px;">
+                    <li style="margin-bottom: 8px;">Further skill development and training</li>
+                    <li style="margin-bottom: 8px;">Additional performance evaluation</li>
+                    <li style="margin-bottom: 8px;">Meeting specific objectives and goals</li>
+                    <li style="margin-bottom: 8px;">Ensuring the best fit for your role</li>
+                </ul>
+                {% if extension_reason %}
+                <p style="color: #333; line-height: 1.6; margin: 15px 0 0 0; font-style: italic;">
+                    <strong>Reason for extension:</strong> {{ extension_reason }}
+                </p>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Performance Highlights -->
+            {% if performance_notes %}
+            <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+                <h3 style="color: #155724; margin: 0 0 15px 0; font-size: 18px;">Your Progress So Far</h3>
+                <p style="color: #333; line-height: 1.6; margin: 0;">
+                    {{ performance_notes }}
+                </p>
+            </div>
+            {% endif %}
+
+            <!-- Next Steps -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">Next Steps</h3>
+                <ul style="color: #333; line-height: 1.6; margin: 0; padding-left: 20px;">
+                    {% if reminder_type == 'ending_soon' %}
+                    <li style="margin-bottom: 8px;">Prepare for your final probation review meeting</li>
+                    <li style="margin-bottom: 8px;">Complete any outstanding training or objectives</li>
+                    <li style="margin-bottom: 8px;">Gather feedback from colleagues and stakeholders</li>
+                    {% elif reminder_type == 'midpoint' %}
+                    <li style="margin-bottom: 8px;">Schedule a midpoint review with your manager</li>
+                    <li style="margin-bottom: 8px;">Continue working on your development goals</li>
+                    <li style="margin-bottom: 8px;">Seek feedback and support where needed</li>
+                    {% elif reminder_type == 'extension' %}
+                    <li style="margin-bottom: 8px;">Review the specific objectives for the extension period</li>
+                    <li style="margin-bottom: 8px;">Meet with your manager to discuss expectations</li>
+                    <li style="margin-bottom: 8px;">Focus on areas identified for improvement</li>
+                    {% endif %}
+                    <li style="margin-bottom: 8px;">Contact HR if you have any questions or concerns</li>
+                </ul>
+            </div>
+
+            <!-- Contact Information -->
+            <div style="margin: 30px 0 20px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">Need Support?</h3>
+                <p style="color: #555; line-height: 1.6; margin: 0;">
+                    If you have any questions about your probation period or need support, please contact:
+                </p>
+                <ul style="color: #555; line-height: 1.6; margin: 10px 0 0 0; padding-left: 20px;">
+                    <li>Your Manager: {{ employee.user.manager.get_full_name|default:"Not Assigned" }}</li>
+                    <li>HR Department: {{ hr_email|default:"hr@company.com" }}</li>
+                    <li>HR Phone: {{ hr_phone|default:"Not Available" }}</li>
+                </ul>
+            </div>
+
+            <p style="color: #555; line-height: 1.6; margin: 20px 0 0 0; font-size: 16px;">
+                We appreciate your dedication and look forward to your continued success with {{ company_name }}.
+            </p>
+
+            <p style="color: #555; margin: 20px 0 0 0; font-size: 16px;">
+                Best regards,<br>
+                <strong>{{ company_name }} HR Team</strong>
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #dee2e6;">
+            <p style="color: #666; margin: 0; font-size: 14px;">
+                {{ company_name }} | Human Resources Department
+            </p>
+            <p style="color: #666; margin: 5px 0 0 0; font-size: 12px;">
+                This is an automated reminder. For questions, contact HR directly.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

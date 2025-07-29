@@ -10,7 +10,8 @@ from django.shortcuts import render
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.db import transaction
-
+from employees.models import EmployeeProfile, Education, Contract
+from employees.admin import EmployeeProfileAdmin, EducationAdmin, ContractAdmin
 from .models import (
     CustomUser,
     Department,
@@ -810,3 +811,9 @@ hr_admin_site.register(UserSession, UserSessionAdmin)
 hr_admin_site.register(PasswordResetToken, PasswordResetTokenAdmin)
 hr_admin_site.register(AuditLog, AuditLogAdmin)
 hr_admin_site.register(SystemConfiguration, SystemConfigurationAdmin)
+
+# EMPLOYEE REGISTRATIONS 
+hr_admin_site.register(EmployeeProfile, EmployeeProfileAdmin)
+hr_admin_site.register(Education, EducationAdmin)
+hr_admin_site.register(Contract, ContractAdmin)
+

@@ -1,0 +1,1400 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_urls %}
+
+{% block title %}Bulk Salary Update - {{ site_title|default:"Django site admin" }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}">
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/widgets.css' %}">
+<script src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
+<script src="{% static 'admin/js/jquery.init.js' %}"></script>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='employees' %}">Employees</a>
+    &rsaquo; Bulk Salary Update
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="bulk-salary-update-container">
+    <div class="page-header">
+        <h1><i class="fas fa-dollar-sign"></i> Bulk Salary Update</h1>
+        <div class="header-actions">
+            <a href="{% url 'admin:employees_employeeprofile_changelist' %}" class="back-btn">
+                <i class="fas fa-arrow-left"></i> Back to Employees
+            </a>
+            <button type="button" class="help-btn" onclick="toggleHelp()">
+                <i class="fas fa-question-circle"></i> Help
+            </button>
+        </div>
+    </div>
+
+    <div class="help-panel" id="helpPanel">
+        <div class="help-content">
+            <h3>Bulk Salary Update Instructions</h3>
+            <ul>
+                <li>Select employees using filters or individual checkboxes</li>
+                <li>Choose update type: percentage increase, fixed amount, or set specific salary</li>
+                <li>Preview changes before applying</li>
+                <li>All changes are logged for audit purposes</li>
+                <li>Notifications will be sent to affected employees</li>
+            </ul>
+        </div>
+    </div>
+
+    <form method="post" id="bulkSalaryForm">
+        {% csrf_token %}
+        
+        <div class="form-sections">
+            <div class="section employee-selection">
+                <div class="section-header">
+                    <h2><i class="fas fa-users"></i> Employee Selection</h2>
+                    <div class="selection-summary">
+                        <span id="selectedCount">0</span> employees selected
+                    </div>
+                </div>
+                
+                <div class="selection-filters">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="departmentFilter">Department:</label>
+                            <select id="departmentFilter" name="department_filter" onchange="filterEmployees()">
+                                <option value="">All Departments</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="gradeFilter">Grade Level:</label>
+                            <select id="gradeFilter" name="grade_filter" onchange="filterEmployees()">
+                                <option value="">All Grades</option>
+                                {% for grade in grade_levels %}
+                                <option value="{{ grade.0 }}">{{ grade.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="statusFilter">Employment Status:</label>
+                            <select id="statusFilter" name="status_filter" onchange="filterEmployees()">
+                                <option value="">All Statuses</option>
+                                {% for status in employment_statuses %}
+                                <option value="{{ status.0 }}">{{ status.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="salaryRangeFilter">Salary Range:</label>
+                            <select id="salaryRangeFilter" name="salary_range_filter" onchange="filterEmployees()">
+                                <option value="">All Ranges</option>
+                                <option value="0-30000">$0 - $30,000</option>
+                                <option value="30000-50000">$30,000 - $50,000</option>
+                                <option value="50000-75000">$50,000 - $75,000</option>
+                                <option value="75000-100000">$75,000 - $100,000</option>
+                                <option value="100000+">$100,000+</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-actions">
+                        <button type="button" class="select-all-btn" onclick="selectAllFiltered()">
+                            <i class="fas fa-check-square"></i> Select All Filtered
+                        </button>
+                        <button type="button" class="clear-selection-btn" onclick="clearSelection()">
+                            <i class="fas fa-times"></i> Clear Selection
+                        </button>
+                        <button type="button" class="reset-filters-btn" onclick="resetFilters()">
+                            <i class="fas fa-undo"></i> Reset Filters
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="employees-table-container">
+                    <table class="employees-table">
+                        <thead>
+                            <tr>
+                                <th>
+                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                                </th>
+                                <th>Employee</th>
+                                <th>Department</th>
+                                <th>Grade</th>
+                                <th>Current Salary</th>
+                                <th>Employment Status</th>
+                                <th>Last Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeesTableBody">
+                            {% for employee in employees %}
+                            <tr class="employee-row" 
+                                data-department="{{ employee.user.department.id|default:'' }}"
+                                data-grade="{{ employee.grade_level }}"
+                                data-status="{{ employee.employment_status }}"
+                                data-salary="{{ employee.basic_salary }}">
+                                <td>
+                                    <input type="checkbox" 
+                                           name="selected_employees" 
+                                           value="{{ employee.user.id }}"
+                                           class="employee-checkbox"
+                                           onchange="updateSelectionCount()">
+                                </td>
+                                <td>
+                                    <div class="employee-info">
+                                        <div class="employee-avatar">
+                                            <i class="fas fa-user-circle"></i>
+                                        </div>
+                                        <div class="employee-details">
+                                            <div class="employee-name">{{ employee.user.get_full_name }}</div>
+                                            <div class="employee-id">{{ employee.employee_id }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="department-name">{{ employee.user.department.name|default:"No Department" }}</span>
+                                </td>
+                                <td>
+                                    <span class="grade-badge grade-{{ employee.grade_level|lower }}">{{ employee.get_grade_level_display }}</span>
+                                </td>
+                                <td>
+                                    <span class="salary-amount">${{ employee.basic_salary|floatformat:0 }}</span>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ employee.employment_status|lower }}">{{ employee.get_employment_status_display }}</span>
+                                </td>
+                                <td>
+                                    <span class="last-updated">{{ employee.updated_at|date:"M d, Y" }}</span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="no-employees">
+                                    <i class="fas fa-users"></i>
+                                    <p>No employees found</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="section salary-update">
+                <div class="section-header">
+                    <h2><i class="fas fa-calculator"></i> Salary Update Configuration</h2>
+                </div>
+                
+                <div class="update-options">
+                    <div class="option-group">
+                        <label class="radio-label">
+                            <input type="radio" name="update_type" value="percentage" checked onchange="toggleUpdateOptions()">
+                            <span class="radio-custom"></span>
+                            Percentage Increase
+                        </label>
+                        <div class="option-details percentage-details">
+                            <div class="input-group">
+                                <input type="number" name="percentage_increase" id="percentageIncrease" 
+                                       min="0" max="100" step="0.1" placeholder="0.0">
+                                <span class="input-suffix">%</span>
+                            </div>
+                            <small class="help-text">Enter percentage increase (e.g., 5.5 for 5.5% increase)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="radio-label">
+                            <input type="radio" name="update_type" value="fixed_amount" onchange="toggleUpdateOptions()">
+                            <span class="radio-custom"></span>
+                            Fixed Amount Increase
+                        </label>
+                        <div class="option-details fixed-amount-details" style="display: none;">
+                            <div class="input-group">
+                                <span class="input-prefix">$</span>
+                                <input type="number" name="fixed_amount" id="fixedAmount" 
+                                       min="0" step="100" placeholder="0">
+                            </div>
+                            <small class="help-text">Enter fixed amount to add to current salary</small>
+                        </div>
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="radio-label">
+                            <input type="radio" name="update_type" value="set_salary" onchange="toggleUpdateOptions()">
+                            <span class="radio-custom"></span>
+                            Set Specific Salary
+                        </label>
+                        <div class="option-details set-salary-details" style="display: none;">
+                            <div class="input-group">
+                                <span class="input-prefix">$</span>
+                                <input type="number" name="new_salary" id="newSalary" 
+                                       min="0" step="1000" placeholder="0">
+                            </div>
+                            <small class="help-text">Set the same salary for all selected employees</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="update-settings">
+                    <div class="settings-row">
+                        <div class="setting-group">
+                            <label for="effectiveDate">Effective Date:</label>
+                            <input type="date" name="effective_date" id="effectiveDate" 
+                                   value="{{ today|date:'Y-m-d' }}" required>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label for="reason">Reason for Update:</label>
+                            <select name="reason" id="reason" required>
+                                <option value="">Select Reason</option>
+                                <option value="annual_review">Annual Review</option>
+                                <option value="promotion">Promotion</option>
+                                <option value="market_adjustment">Market Adjustment</option>
+                                <option value="performance_bonus">Performance Bonus</option>
+                                <option value="cost_of_living">Cost of Living Adjustment</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-row">
+                        <div class="setting-group full-width">
+                            <label for="notes">Additional Notes:</label>
+                            <textarea name="notes" id="notes" rows="3" 
+                                      placeholder="Optional notes about this salary update..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-row">
+                        <div class="setting-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="send_notifications" checked>
+                                <span class="checkbox-custom"></span>
+                                Send email notifications to affected employees
+                            </label>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="update_contracts" checked>
+                                <span class="checkbox-custom"></span>
+                                Update active contracts with new salary
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            .checkbox-label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                color: #374151;
+            }
+            
+            .checkbox-label input[type="checkbox"] {
+                display: none;
+            }
+            
+            .checkbox-custom {
+                width: 18px;
+                height: 18px;
+                border: 2px solid #D1D5DB;
+                border-radius: 4px;
+                position: relative;
+                transition: all 0.3s ease;
+            }
+            
+            .checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+                background: #3D5AFE;
+                border-color: #3D5AFE;
+            }
+            
+            .checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+                content: '✓';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: #FFFFFF;
+                font-size: 12px;
+                font-weight: 700;
+            }
+            
+            .preview-container {
+                padding: 20px;
+                background: #FFFFFF;
+                min-height: 200px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .preview-placeholder {
+                text-align: center;
+                color: #6B7280;
+            }
+            
+            .preview-placeholder i {
+                font-size: 48px;
+                margin-bottom: 16px;
+                color: #D1D5DB;
+            }
+            
+            .preview-placeholder p {
+                font-size: 16px;
+                margin: 0;
+            }
+            
+            .preview-btn {
+                background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+                color: #FFFFFF;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 600;
+                border: none;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            
+            .preview-btn:hover {
+                background: linear-gradient(90deg, #059669 0%, #047857 100%);
+                transform: translateY(-1px);
+            }
+            
+            .preview-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 16px;
+            }
+            
+            .preview-table th {
+                background: #F3F4F6;
+                padding: 12px;
+                text-align: left;
+                font-size: 12px;
+                font-weight: 600;
+                color: #374151;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-bottom: 1px solid #E5E7EB;
+            }
+            
+            .preview-table td {
+                padding: 12px;
+                border-bottom: 1px solid #F3F4F6;
+                font-size: 14px;
+            }
+            
+            .preview-table .employee-name {
+                font-weight: 600;
+                color: #2B2B2B;
+            }
+            
+            .preview-table .current-salary {
+                font-family: monospace;
+                color: #6B7280;
+            }
+            
+            .preview-table .new-salary {
+                font-family: monospace;
+                font-weight: 700;
+                color: #10B981;
+            }
+            
+            .preview-table .salary-increase {
+                font-family: monospace;
+                font-weight: 600;
+                color: #3D5AFE;
+            }
+            
+            .preview-summary {
+                background: #F8F9FA;
+                border-top: 1px solid #E5E7EB;
+                padding: 20px;
+            }
+            
+            .summary-stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 16px;
+            }
+            
+            .stat-item {
+                text-align: center;
+                padding: 16px;
+                background: #FFFFFF;
+                border-radius: 8px;
+                border: 1px solid #E5E7EB;
+            }
+            
+            .stat-label {
+                font-size: 12px;
+                color: #6B7280;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 8px;
+            }
+            
+            .stat-value {
+                font-size: 20px;
+                font-weight: 800;
+                color: #2B2B2B;
+                font-family: monospace;
+            }
+            
+            .form-actions {
+                display: flex;
+                justify-content: flex-end;
+                gap: 12px;
+                padding: 20px 0;
+                border-top: 2px solid #E5E7EB;
+                margin-top: 24px;
+            }
+            
+            .cancel-btn, .save-draft-btn, .apply-btn {
+                padding: 12px 24px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 600;
+                border: none;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            .cancel-btn {
+                background: #6B7280;
+                color: #FFFFFF;
+            }
+            
+            .save-draft-btn {
+                background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+                color: #FFFFFF;
+            }
+            
+            .apply-btn {
+                background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+                color: #FFFFFF;
+            }
+            
+            .apply-btn:disabled {
+                background: #D1D5DB;
+                color: #9CA3AF;
+                cursor: not-allowed;
+            }
+            
+            .cancel-btn:hover, .save-draft-btn:hover, .apply-btn:hover:not(:disabled) {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            }
+            
+            .confirmation-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+            }
+            
+            .confirmation-modal.show {
+                display: flex;
+                animation: fadeIn 0.3s ease;
+            }
+            
+            .modal-content {
+                background: #FFFFFF;
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+                max-width: 500px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+            
+            .modal-header {
+                background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+                color: #FFFFFF;
+                padding: 16px 20px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .modal-header h3 {
+                font-size: 18px;
+                font-weight: 600;
+                margin: 0;
+            }
+            
+            .close-btn {
+                background: none;
+                border: none;
+                color: #FFFFFF;
+                font-size: 24px;
+                cursor: pointer;
+                padding: 0;
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                transition: all 0.3s ease;
+            }
+            
+            .close-btn:hover {
+                background: rgba(255, 255, 255, 0.2);
+            }
+            
+            .modal-body {
+                padding: 20px;
+            }
+            
+            .confirmation-warning {
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                padding: 16px;
+                background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%);
+                border: 1px solid rgba(245, 158, 11, 0.2);
+                border-radius: 8px;
+                margin-bottom: 16px;
+            }
+            
+            .confirmation-warning i {
+                color: #F59E0B;
+                font-size: 20px;
+                margin-top: 2px;
+            }
+            
+            .confirmation-warning p {
+                margin: 0 0 8px 0;
+                color: #374151;
+                font-size: 14px;
+            }
+            
+            .confirmation-details {
+                background: #F8F9FA;
+                border: 1px solid #E5E7EB;
+                border-radius: 8px;
+                padding: 16px;
+            }
+            
+            .modal-actions {
+                padding: 16px 20px;
+                border-top: 1px solid #E5E7EB;
+                display: flex;
+                justify-content: flex-end;
+                gap: 12px;
+            }
+            
+            .cancel-modal-btn, .confirm-btn {
+                padding: 10px 20px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 600;
+                border: none;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            
+            .cancel-modal-btn {
+                background: #6B7280;
+                color: #FFFFFF;
+            }
+            
+            .confirm-btn {
+                background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+                color: #FFFFFF;
+            }
+            
+            .cancel-modal-btn:hover, .confirm-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            }
+            
+            @keyframes slideDown {
+                from {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            
+            .employee-row.filtered-out {
+                display: none;
+            }
+            
+            .loading-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(255, 255, 255, 0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 100;
+            }
+            
+            .loading-spinner {
+                width: 32px;
+                height: 32px;
+                border: 3px solid #f3f3f3;
+                border-top: 3px solid #3D5AFE;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
+            
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            
+            @media (max-width: 768px) {
+                .bulk-salary-update-container {
+                    padding: 16px;
+                }
+                
+                .page-header {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 12px;
+                }
+                
+                .header-actions {
+                    width: 100%;
+                    justify-content: flex-end;
+                }
+                
+                .filter-row {
+                    grid-template-columns: 1fr;
+                    gap: 12px;
+                }
+                
+                .filter-actions {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+                
+                .employees-table-container {
+                    overflow-x: auto;
+                }
+                
+                .employees-table {
+                    min-width: 800px;
+                }
+                
+                .settings-row {
+                    grid-template-columns: 1fr;
+                    gap: 12px;
+                }
+                
+                .summary-stats {
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 12px;
+                }
+                
+                .form-actions {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+                
+                .modal-content {
+                    width: 95%;
+                    margin: 20px;
+                }
+            }
+            
+            @media (max-width: 480px) {
+                .summary-stats {
+                    grid-template-columns: 1fr;
+                }
+                
+                .employees-table th,
+                .employees-table td {
+                    padding: 8px;
+                    font-size: 12px;
+                }
+                
+                .employee-info {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 4px;
+                }
+                
+                .employee-avatar {
+                    width: 24px;
+                    height: 24px;
+                    font-size: 12px;
+                }
+            }
+            </style>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    initBulkSalaryUpdate();
+                    setupFormValidation();
+                    setupEmployeeSelection();
+                    setupUpdateOptions();
+                });
+                
+                function initBulkSalaryUpdate() {
+                    updateSelectionCount();
+                    toggleUpdateOptions();
+                    validateForm();
+                }
+                
+                function toggleHelp() {
+                    const helpPanel = document.getElementById('helpPanel');
+                    helpPanel.classList.toggle('show');
+                }
+                
+                function filterEmployees() {
+                    const departmentFilter = document.getElementById('departmentFilter').value;
+                    const gradeFilter = document.getElementById('gradeFilter').value;
+                    const statusFilter = document.getElementById('statusFilter').value;
+                    const salaryRangeFilter = document.getElementById('salaryRangeFilter').value;
+                    
+                    const employeeRows = document.querySelectorAll('.employee-row');
+                    let visibleCount = 0;
+                    
+                    employeeRows.forEach(row => {
+                        const department = row.dataset.department;
+                        const grade = row.dataset.grade;
+                        const status = row.dataset.status;
+                        const salary = parseFloat(row.dataset.salary);
+                        
+                        let showRow = true;
+                        
+                        if (departmentFilter && department !== departmentFilter) {
+                            showRow = false;
+                        }
+                        
+                        if (gradeFilter && grade !== gradeFilter) {
+                            showRow = false;
+                        }
+                        
+                        if (statusFilter && status !== statusFilter) {
+                            showRow = false;
+                        }
+                        
+                        if (salaryRangeFilter) {
+                            const [min, max] = salaryRangeFilter.split('-').map(v => v === '+' ? Infinity : parseFloat(v.replace('+', '')));
+                            if (max) {
+                                if (salary < min || salary > max) {
+                                    showRow = false;
+                                }
+                            } else {
+                                if (salary < min) {
+                                    showRow = false;
+                                }
+                            }
+                        }
+                        
+                        if (showRow) {
+                            row.classList.remove('filtered-out');
+                            visibleCount++;
+                        } else {
+                            row.classList.add('filtered-out');
+                            row.querySelector('.employee-checkbox').checked = false;
+                        }
+                    });
+                    
+                    updateSelectionCount();
+                    updateFilterMessage(visibleCount);
+                }
+                
+                function updateFilterMessage(visibleCount) {
+                    const totalCount = document.querySelectorAll('.employee-row').length;
+                    const filterMessage = document.getElementById('filterMessage');
+                    
+                    if (!filterMessage) {
+                        const message = document.createElement('div');
+                        message.id = 'filterMessage';
+                        message.style.cssText = `
+                            padding: 8px 12px;
+                            background: #F3F4F6;
+                            border-radius: 6px;
+                            font-size: 12px;
+                            color: #6B7280;
+                            margin-top: 8px;
+                        `;
+                        document.querySelector('.filter-actions').appendChild(message);
+                    }
+                    
+                    const messageEl = document.getElementById('filterMessage');
+                    if (visibleCount < totalCount) {
+                        messageEl.textContent = `Showing ${visibleCount} of ${totalCount} employees`;
+                        messageEl.style.display = 'block';
+                    } else {
+                        messageEl.style.display = 'none';
+                    }
+                }
+                
+                function selectAllFiltered() {
+                    const visibleCheckboxes = document.querySelectorAll('.employee-row:not(.filtered-out) .employee-checkbox');
+                    visibleCheckboxes.forEach(checkbox => {
+                        checkbox.checked = true;
+                        checkbox.closest('.employee-row').classList.add('selected');
+                    });
+                    updateSelectionCount();
+                    validateForm();
+                }
+                
+                function clearSelection() {
+                    const checkboxes = document.querySelectorAll('.employee-checkbox');
+                    checkboxes.forEach(checkbox => {
+                        checkbox.checked = false;
+                        checkbox.closest('.employee-row').classList.remove('selected');
+                    });
+                    document.getElementById('selectAllCheckbox').checked = false;
+                    updateSelectionCount();
+                    validateForm();
+                }
+                
+                function resetFilters() {
+                    document.getElementById('departmentFilter').value = '';
+                    document.getElementById('gradeFilter').value = '';
+                    document.getElementById('statusFilter').value = '';
+                    document.getElementById('salaryRangeFilter').value = '';
+                    
+                    const employeeRows = document.querySelectorAll('.employee-row');
+                    employeeRows.forEach(row => {
+                        row.classList.remove('filtered-out');
+                    });
+                    
+                    updateSelectionCount();
+                    const filterMessage = document.getElementById('filterMessage');
+                    if (filterMessage) {
+                        filterMessage.style.display = 'none';
+                    }
+                }
+                
+                function toggleSelectAll() {
+                    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+                    const visibleCheckboxes = document.querySelectorAll('.employee-row:not(.filtered-out) .employee-checkbox');
+                    
+                    visibleCheckboxes.forEach(checkbox => {
+                        checkbox.checked = selectAllCheckbox.checked;
+                        if (selectAllCheckbox.checked) {
+                            checkbox.closest('.employee-row').classList.add('selected');
+                        } else {
+                            checkbox.closest('.employee-row').classList.remove('selected');
+                        }
+                    });
+                    
+                    updateSelectionCount();
+                    validateForm();
+                }
+                
+                function updateSelectionCount() {
+                    const selectedCheckboxes = document.querySelectorAll('.employee-checkbox:checked');
+                    const count = selectedCheckboxes.length;
+                    document.getElementById('selectedCount').textContent = count;
+                    
+                    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+                    const visibleCheckboxes = document.querySelectorAll('.employee-row:not(.filtered-out) .employee-checkbox');
+                    const visibleSelectedCount = Array.from(visibleCheckboxes).filter(cb => cb.checked).length;
+                    
+                    if (visibleSelectedCount === 0) {
+                        selectAllCheckbox.indeterminate = false;
+                        selectAllCheckbox.checked = false;
+                    } else if (visibleSelectedCount === visibleCheckboxes.length) {
+                        selectAllCheckbox.indeterminate = false;
+                        selectAllCheckbox.checked = true;
+                    } else {
+                        selectAllCheckbox.indeterminate = true;
+                    }
+                }
+                
+                function setupEmployeeSelection() {
+                    const checkboxes = document.querySelectorAll('.employee-checkbox');
+                    checkboxes.forEach(checkbox => {
+                        checkbox.addEventListener('change', function() {
+                            if (this.checked) {
+                                this.closest('.employee-row').classList.add('selected');
+                            } else {
+                                this.closest('.employee-row').classList.remove('selected');
+                            }
+                            updateSelectionCount();
+                            validateForm();
+                        });
+                    });
+                }
+                
+                function toggleUpdateOptions() {
+                    const updateType = document.querySelector('input[name="update_type"]:checked').value;
+                    
+                    document.querySelectorAll('.option-details').forEach(detail => {
+                        detail.style.display = 'none';
+                    });
+                    
+                    const activeDetail = document.querySelector(`.${updateType.replace('_', '-')}-details`);
+                    if (activeDetail) {
+                        activeDetail.style.display = 'block';
+                    }
+                    
+                    validateForm();
+                }
+                
+                function setupUpdateOptions() {
+                    const updateTypeRadios = document.querySelectorAll('input[name="update_type"]');
+                    updateTypeRadios.forEach(radio => {
+                        radio.addEventListener('change', toggleUpdateOptions);
+                    });
+                    
+                    const inputs = document.querySelectorAll('#percentageIncrease, #fixedAmount, #newSalary');
+                    inputs.forEach(input => {
+                        input.addEventListener('input', validateForm);
+                    });
+                    
+                    const requiredFields = document.querySelectorAll('#effectiveDate, #reason');
+                    requiredFields.forEach(field => {
+                        field.addEventListener('change', validateForm);
+                    });
+                }
+                
+                function validateForm() {
+                    const selectedEmployees = document.querySelectorAll('.employee-checkbox:checked').length;
+                    const updateType = document.querySelector('input[name="update_type"]:checked').value;
+                    const effectiveDate = document.getElementById('effectiveDate').value;
+                    const reason = document.getElementById('reason').value;
+                    
+                    let updateValue = false;
+                    
+                    if (updateType === 'percentage') {
+                        const percentage = document.getElementById('percentageIncrease').value;
+                        updateValue = percentage && parseFloat(percentage) > 0;
+                    } else if (updateType === 'fixed_amount') {
+                        const amount = document.getElementById('fixedAmount').value;
+                        updateValue = amount && parseFloat(amount) > 0;
+                    } else if (updateType === 'set_salary') {
+                        const salary = document.getElementById('newSalary').value;
+                        updateValue = salary && parseFloat(salary) > 0;
+                    }
+                    
+                    const isValid = selectedEmployees > 0 && updateValue && effectiveDate && reason;
+                    
+                    const applyBtn = document.getElementById('applyBtn');
+                    applyBtn.disabled = !isValid;
+                    
+                    if (isValid) {
+                        applyBtn.style.opacity = '1';
+                        applyBtn.style.cursor = 'pointer';
+                    } else {
+                        applyBtn.style.opacity = '0.6';
+                        applyBtn.style.cursor = 'not-allowed';
+                    }
+                }
+                
+                function setupFormValidation() {
+                    const form = document.getElementById('bulkSalaryForm');
+                    form.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        showConfirmationModal();
+                    });
+                }
+                
+                function generatePreview() {
+                    const selectedEmployees = Array.from(document.querySelectorAll('.employee-checkbox:checked'));
+                    
+                    if (selectedEmployees.length === 0) {
+                        alert('Please select at least one employee to preview changes.');
+                        return;
+                    }
+                    
+                    const updateType = document.querySelector('input[name="update_type"]:checked').value;
+                    let updateValue;
+                    
+                    if (updateType === 'percentage') {
+                        updateValue = parseFloat(document.getElementById('percentageIncrease').value);
+                        if (!updateValue || updateValue <= 0) {
+                            alert('Please enter a valid percentage increase.');
+                            return;
+                        }
+                    } else if (updateType === 'fixed_amount') {
+                        updateValue = parseFloat(document.getElementById('fixedAmount').value);
+                        if (!updateValue || updateValue <= 0) {
+                            alert('Please enter a valid fixed amount.');
+                            return;
+                        }
+                    } else if (updateType === 'set_salary') {
+                        updateValue = parseFloat(document.getElementById('newSalary').value);
+                        if (!updateValue || updateValue <= 0) {
+                            alert('Please enter a valid salary amount.');
+                            return;
+                        }
+                    }
+                    
+                    const previewContainer = document.getElementById('previewContainer');
+                    const previewSummary = document.getElementById('previewSummary');
+                    
+                    previewContainer.innerHTML = '<div class="loading-overlay"><div class="loading-spinner"></div></div>';
+                    
+                    setTimeout(() => {
+                        generatePreviewTable(selectedEmployees, updateType, updateValue);
+                        previewSummary.style.display = 'block';
+                    }, 1000);
+                }
+                
+                function generatePreviewTable(selectedEmployees, updateType, updateValue) {
+                    let totalIncrease = 0;
+                    let newTotalPayroll = 0;
+                    
+                    const previewData = selectedEmployees.map(checkbox => {
+                        const row = checkbox.closest('.employee-row');
+                        const employeeName = row.querySelector('.employee-name').textContent;
+                        const currentSalary = parseFloat(row.dataset.salary);
+                        
+                        let newSalary;
+                        if (updateType === 'percentage') {
+                            newSalary = currentSalary * (1 + updateValue / 100);
+                        } else if (updateType === 'fixed_amount') {
+                            newSalary = currentSalary + updateValue;
+                        } else {
+                            newSalary = updateValue;
+                        }
+                        
+                        const increase = newSalary - currentSalary;
+                        totalIncrease += increase;
+                        newTotalPayroll += newSalary;
+                        
+                        return {
+                            name: employeeName,
+                            currentSalary: currentSalary,
+                            newSalary: newSalary,
+                            increase: increase
+                        };
+                    });
+                    
+                    const previewContainer = document.getElementById('previewContainer');
+                    previewContainer.innerHTML = `
+                        <table class="preview-table">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Current Salary</th>
+                                    <th>New Salary</th>
+                                    <th>Increase</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${previewData.map(emp => `
+                                    <tr>
+                                        <td class="employee-name">${emp.name}</td>
+                                        <td class="current-salary">$${emp.currentSalary.toLocaleString()}</td>
+                                        <td class="new-salary">$${emp.newSalary.toLocaleString()}</td>
+                                        <td class="salary-increase">+$${emp.increase.toLocaleString()}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    
+                    document.getElementById('totalEmployees').textContent = selectedEmployees.length;
+                    document.getElementById('totalIncrease').textContent = `$${totalIncrease.toLocaleString()}`;
+                    document.getElementById('averageIncrease').textContent = `$${(totalIncrease / selectedEmployees.length).toLocaleString()}`;
+                    document.getElementById('newTotalPayroll').textContent = `$${newTotalPayroll.toLocaleString()}`;
+                }
+
+                function showConfirmationModal() {
+                    const selectedEmployees = document.querySelectorAll('.employee-checkbox:checked');
+                    const updateType = document.querySelector('input[name="update_type"]:checked').value;
+                    const modal = document.getElementById('confirmationModal');
+                    
+                    document.getElementById('confirmEmployeeCount').textContent = selectedEmployees.length;
+                    
+                    let updateDetails = '';
+                    if (updateType === 'percentage') {
+                        const percentage = document.getElementById('percentageIncrease').value;
+                        updateDetails = `${percentage}% salary increase`;
+                    } else if (updateType === 'fixed_amount') {
+                        const amount = document.getElementById('fixedAmount').value;
+                        updateDetails = `$${parseFloat(amount).toLocaleString()} fixed increase`;
+                    } else if (updateType === 'set_salary') {
+                        const salary = document.getElementById('newSalary').value;
+                        updateDetails = `Set salary to $${parseFloat(salary).toLocaleString()}`;
+                    }
+                    
+                    const effectiveDate = document.getElementById('effectiveDate').value;
+                    const reason = document.getElementById('reason').options[document.getElementById('reason').selectedIndex].text;
+                    const sendNotifications = document.querySelector('input[name="send_notifications"]').checked;
+                    const updateContracts = document.querySelector('input[name="update_contracts"]').checked;
+                    
+                    document.getElementById('confirmationDetails').innerHTML = `
+                        <div style="margin-bottom: 12px;">
+                            <strong>Update Type:</strong> ${updateDetails}
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong>Effective Date:</strong> ${new Date(effectiveDate).toLocaleDateString()}
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong>Reason:</strong> ${reason}
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong>Send Notifications:</strong> ${sendNotifications ? 'Yes' : 'No'}
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong>Update Contracts:</strong> ${updateContracts ? 'Yes' : 'No'}
+                        </div>
+                    `;
+                    
+                    modal.classList.add('show');
+                }
+                
+                function closeConfirmationModal() {
+                    const modal = document.getElementById('confirmationModal');
+                    modal.classList.remove('show');
+                }
+                
+                function confirmSalaryUpdate() {
+                    const confirmBtn = document.querySelector('.confirm-btn');
+                    const originalText = confirmBtn.innerHTML;
+                    
+                    confirmBtn.innerHTML = '<div class="loading-spinner" style="width: 16px; height: 16px; border-width: 2px;"></div> Processing...';
+                    confirmBtn.disabled = true;
+                    
+                    const formData = new FormData(document.getElementById('bulkSalaryForm'));
+                    
+                    fetch(window.location.href, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showSuccessMessage(data.message, data.updated_count);
+                            setTimeout(() => {
+                                window.location.href = data.redirect_url || '/admin/employees/employeeprofile/';
+                            }, 3000);
+                        } else {
+                            showErrorMessage(data.message || 'An error occurred while updating salaries.');
+                            confirmBtn.innerHTML = originalText;
+                            confirmBtn.disabled = false;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showErrorMessage('An error occurred while processing the request.');
+                        confirmBtn.innerHTML = originalText;
+                        confirmBtn.disabled = false;
+                    });
+                }
+                
+                function saveDraft() {
+                    const selectedEmployees = Array.from(document.querySelectorAll('.employee-checkbox:checked')).map(cb => cb.value);
+                    const updateType = document.querySelector('input[name="update_type"]:checked').value;
+                    const formData = {
+                        selected_employees: selectedEmployees,
+                        update_type: updateType,
+                        percentage_increase: document.getElementById('percentageIncrease').value,
+                        fixed_amount: document.getElementById('fixedAmount').value,
+                        new_salary: document.getElementById('newSalary').value,
+                        effective_date: document.getElementById('effectiveDate').value,
+                        reason: document.getElementById('reason').value,
+                        notes: document.getElementById('notes').value,
+                        send_notifications: document.querySelector('input[name="send_notifications"]').checked,
+                        update_contracts: document.querySelector('input[name="update_contracts"]').checked
+                    };
+                    
+                    localStorage.setItem('bulkSalaryUpdateDraft', JSON.stringify(formData));
+                    showSuccessMessage('Draft saved successfully!');
+                }
+                
+                function loadDraft() {
+                    const draft = localStorage.getItem('bulkSalaryUpdateDraft');
+                    if (draft) {
+                        const data = JSON.parse(draft);
+                        
+                        data.selected_employees.forEach(employeeId => {
+                            const checkbox = document.querySelector(`input[value="${employeeId}"]`);
+                            if (checkbox) {
+                                checkbox.checked = true;
+                                checkbox.closest('.employee-row').classList.add('selected');
+                            }
+                        });
+                        
+                        document.querySelector(`input[name="update_type"][value="${data.update_type}"]`).checked = true;
+                        toggleUpdateOptions();
+                        
+                        if (data.percentage_increase) document.getElementById('percentageIncrease').value = data.percentage_increase;
+                        if (data.fixed_amount) document.getElementById('fixedAmount').value = data.fixed_amount;
+                        if (data.new_salary) document.getElementById('newSalary').value = data.new_salary;
+                        if (data.effective_date) document.getElementById('effectiveDate').value = data.effective_date;
+                        if (data.reason) document.getElementById('reason').value = data.reason;
+                        if (data.notes) document.getElementById('notes').value = data.notes;
+                        
+                        document.querySelector('input[name="send_notifications"]').checked = data.send_notifications;
+                        document.querySelector('input[name="update_contracts"]').checked = data.update_contracts;
+                        
+                        updateSelectionCount();
+                        validateForm();
+                        
+                        showSuccessMessage('Draft loaded successfully!');
+                    }
+                }
+                
+                function showSuccessMessage(message, count = null) {
+                    const notification = document.createElement('div');
+                    notification.innerHTML = `
+                        <i class="fas fa-check-circle"></i>
+                        ${message}
+                        ${count ? `<br><small>${count} employees updated</small>` : ''}
+                    `;
+                    notification.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+                        color: white;
+                        padding: 16px 20px;
+                        border-radius: 8px;
+                        z-index: 1001;
+                        font-weight: 600;
+                        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+                        animation: slideInRight 0.3s ease;
+                        max-width: 300px;
+                    `;
+                    
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.style.opacity = '0';
+                        notification.style.transform = 'translateX(100%)';
+                        setTimeout(() => {
+                            if (notification.parentElement) {
+                                document.body.removeChild(notification);
+                            }
+                        }, 300);
+                    }, count ? 6000 : 4000);
+                }
+                
+                function showErrorMessage(message) {
+                    const notification = document.createElement('div');
+                    notification.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+                    notification.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+                        color: white;
+                        padding: 16px 20px;
+                        border-radius: 8px;
+                        z-index: 1001;
+                        font-weight: 600;
+                        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+                        animation: slideInRight 0.3s ease;
+                        max-width: 300px;
+                    `;
+                    
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.style.opacity = '0';
+                        notification.style.transform = 'translateX(100%)';
+                        setTimeout(() => {
+                            if (notification.parentElement) {
+                                document.body.removeChild(notification);
+                            }
+                        }, 300);
+                    }, 5000);
+                }
+                
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        closeConfirmationModal();
+                    }
+                });
+                
+                window.addEventListener('beforeunload', function(e) {
+                    const selectedEmployees = document.querySelectorAll('.employee-checkbox:checked').length;
+                    const hasUnsavedChanges = selectedEmployees > 0 || 
+                                             document.getElementById('percentageIncrease').value ||
+                                             document.getElementById('fixedAmount').value ||
+                                             document.getElementById('newSalary').value;
+                    
+                    if (hasUnsavedChanges) {
+                        const message = 'You have unsaved changes. Are you sure you want to leave?';
+                        e.returnValue = message;
+                        return message;
+                    }
+                });
+                
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes slideInRight {
+                        from {
+                            opacity: 0;
+                            transform: translateX(100%);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateX(0);
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+                
+                if (localStorage.getItem('bulkSalaryUpdateDraft')) {
+                    const loadDraftBtn = document.createElement('button');
+                    loadDraftBtn.type = 'button';
+                    loadDraftBtn.className = 'load-draft-btn';
+                    loadDraftBtn.innerHTML = '<i class="fas fa-upload"></i> Load Draft';
+                    loadDraftBtn.style.cssText = `
+                        background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%);
+                        color: #FFFFFF;
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        border: none;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    `;
+                    loadDraftBtn.onclick = loadDraft;
+                    
+                    document.querySelector('.header-actions').appendChild(loadDraftBtn);
+                }
+                </script>
+                {% endblock %}
+                
+                
+            

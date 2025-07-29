@@ -1,0 +1,915 @@
+{% load i18n static %}
+
+<div class="recent-activities-widget">
+    <div class="widget-header">
+        <h3><i class="fas fa-history"></i> Recent Activities</h3>
+        <div class="widget-actions">
+            <div class="filter-dropdown">
+                <button class="filter-btn" onclick="toggleActivityFilter()">
+                    <i class="fas fa-filter"></i> Filter
+                </button>
+                <div class="filter-menu" id="activityFilterMenu">
+                    <label><input type="checkbox" value="hire" checked> New Hires</label>
+                    <label><input type="checkbox" value="promotion" checked> Promotions</label>
+                    <label><input type="checkbox" value="termination" checked> Terminations</label>
+                    <label><input type="checkbox" value="contract" checked> Contract Updates</label>
+                    <label><input type="checkbox" value="education" checked> Education Records</label>
+                </div>
+            </div>
+            <button class="refresh-btn" onclick="refreshRecentActivities()">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="widget-content">
+        <div class="activities-summary">
+            <div class="summary-item">
+                <div class="summary-icon">
+                    <i class="fas fa-user-plus"></i>
+                </div>
+                <div class="summary-details">
+                    <div class="summary-number">{{ activities_today|default:0 }}</div>
+                    <div class="summary-label">Today</div>
+                </div>
+            </div>
+            
+            <div class="summary-item">
+                <div class="summary-icon">
+                    <i class="fas fa-calendar-week"></i>
+                </div>
+                <div class="summary-details">
+                    <div class="summary-number">{{ activities_this_week|default:0 }}</div>
+                    <div class="summary-label">This Week</div>
+                </div>
+            </div>
+            
+            <div class="summary-item">
+                <div class="summary-icon">
+                    <i class="fas fa-calendar-alt"></i>
+                </div>
+                <div class="summary-details">
+                    <div class="summary-number">{{ activities_this_month|default:0 }}</div>
+                    <div class="summary-label">This Month</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="activities-timeline">
+            <h4><i class="fas fa-clock"></i> Recent Activities</h4>
+            <div class="timeline-container">
+                {% for activity in recent_activities %}
+                <div class="activity-item {{ activity.activity_type|lower }}" data-activity-type="{{ activity.activity_type|lower }}">
+                    <div class="activity-time">
+                        <div class="time-indicator">
+                            {% if activity.activity_type == 'HIRE' %}
+                                <i class="fas fa-user-plus"></i>
+                            {% elif activity.activity_type == 'PROMOTION' %}
+                                <i class="fas fa-arrow-up"></i>
+                            {% elif activity.activity_type == 'TERMINATION' %}
+                                <i class="fas fa-user-times"></i>
+                            {% elif activity.activity_type == 'CONTRACT' %}
+                                <i class="fas fa-file-contract"></i>
+                            {% elif activity.activity_type == 'EDUCATION' %}
+                                <i class="fas fa-graduation-cap"></i>
+                            {% else %}
+                                <i class="fas fa-info-circle"></i>
+                            {% endif %}
+                        </div>
+                        <div class="time-details">
+                            <div class="activity-date">{{ activity.created_at|date:"M d" }}</div>
+                            <div class="activity-time-stamp">{{ activity.created_at|time:"H:i" }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="activity-content">
+                        <div class="activity-header">
+                            <div class="activity-title">{{ activity.title }}</div>
+                            <div class="activity-type-badge">{{ activity.get_activity_type_display }}</div>
+                        </div>
+                        
+                        <div class="activity-description">{{ activity.description }}</div>
+                        
+                        <div class="activity-meta">
+                            <div class="employee-info">
+                                <div class="employee-avatar">
+                                    <i class="fas fa-user-circle"></i>
+                                </div>
+                                <div class="employee-details">
+                                    <span class="employee-name">{{ activity.employee.get_full_name }}</span>
+                                    <span class="employee-department">{{ activity.employee.department.name|default:"No Department" }}</span>
+                                </div>
+                            </div>
+                            
+                            {% if activity.performed_by %}
+                            <div class="performed-by">
+                                <span class="performed-label">by</span>
+                                <span class="performer-name">{{ activity.performed_by.get_full_name }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        {% if activity.additional_data %}
+                        <div class="activity-details">
+                            {% if activity.activity_type == 'HIRE' %}
+                                <div class="detail-item">
+                                    <span class="detail-label">Position:</span>
+                                    <span class="detail-value">{{ activity.additional_data.position }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Salary:</span>
+                                    <span class="detail-value">${{ activity.additional_data.salary|floatformat:0 }}</span>
+                                </div>
+                            {% elif activity.activity_type == 'PROMOTION' %}
+                                <div class="detail-item">
+                                    <span class="detail-label">From:</span>
+                                    <span class="detail-value">{{ activity.additional_data.old_position }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">To:</span>
+                                    <span class="detail-value">{{ activity.additional_data.new_position }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Salary Increase:</span>
+                                    <span class="detail-value positive">${{ activity.additional_data.salary_increase|floatformat:0 }}</span>
+                                </div>
+                            {% elif activity.activity_type == 'CONTRACT' %}
+                                <div class="detail-item">
+                                    <span class="detail-label">Contract Type:</span>
+                                    <span class="detail-value">{{ activity.additional_data.contract_type }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Duration:</span>
+                                    <span class="detail-value">{{ activity.additional_data.duration }}</span>
+                                </div>
+                            {% elif activity.activity_type == 'EDUCATION' %}
+                                <div class="detail-item">
+                                    <span class="detail-label">Qualification:</span>
+                                    <span class="detail-value">{{ activity.additional_data.qualification }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Institution:</span>
+                                    <span class="detail-value">{{ activity.additional_data.institution }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        
+                        {% if activity.related_url %}
+                        <div class="activity-action">
+                            <a href="{{ activity.related_url }}" class="view-details-btn">
+                                <i class="fas fa-external-link-alt"></i> View Details
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-activities">
+                    <i class="fas fa-history"></i>
+                    <p>No recent activities found</p>
+                    <small>Employee activities will appear here</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="activity-stats">
+            <h4><i class="fas fa-chart-bar"></i> Activity Breakdown</h4>
+            <div class="stats-grid">
+                <div class="stat-item hire">
+                    <div class="stat-icon">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-number">{{ hire_activities|default:0 }}</div>
+                        <div class="stat-label">New Hires</div>
+                        <div class="stat-percentage">{{ hire_percentage|floatformat:1 }}%</div>
+                    </div>
+                </div>
+                
+                <div class="stat-item promotion">
+                    <div class="stat-icon">
+                        <i class="fas fa-arrow-up"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-number">{{ promotion_activities|default:0 }}</div>
+                        <div class="stat-label">Promotions</div>
+                        <div class="stat-percentage">{{ promotion_percentage|floatformat:1 }}%</div>
+                    </div>
+                </div>
+                
+                <div class="stat-item termination">
+                    <div class="stat-icon">
+                        <i class="fas fa-user-times"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-number">{{ termination_activities|default:0 }}</div>
+                        <div class="stat-label">Terminations</div>
+                        <div class="stat-percentage">{{ termination_percentage|floatformat:1 }}%</div>
+                    </div>
+                </div>
+                
+                <div class="stat-item contract">
+                    <div class="stat-icon">
+                        <i class="fas fa-file-contract"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-number">{{ contract_activities|default:0 }}</div>
+                        <div class="stat-label">Contracts</div>
+                        <div class="stat-percentage">{{ contract_percentage|floatformat:1 }}%</div>
+                    </div>
+                </div>
+                
+                <div class="stat-item education">
+                    <div class="stat-icon">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-number">{{ education_activities|default:0 }}</div>
+                        <div class="stat-label">Education</div>
+                        <div class="stat-percentage">{{ education_percentage|floatformat:1 }}%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="trending-activities">
+            <h4><i class="fas fa-trending-up"></i> Trending This Week</h4>
+            <div class="trending-list">
+                {% for trend in trending_activities %}
+                <div class="trending-item">
+                    <div class="trending-icon">
+                        {% if trend.activity_type == 'HIRE' %}
+                            <i class="fas fa-user-plus"></i>
+                        {% elif trend.activity_type == 'PROMOTION' %}
+                            <i class="fas fa-arrow-up"></i>
+                        {% elif trend.activity_type == 'TERMINATION' %}
+                            <i class="fas fa-user-times"></i>
+                        {% elif trend.activity_type == 'CONTRACT' %}
+                            <i class="fas fa-file-contract"></i>
+                        {% elif trend.activity_type == 'EDUCATION' %}
+                            <i class="fas fa-graduation-cap"></i>
+                        {% endif %}
+                    </div>
+                    <div class="trending-content">
+                        <div class="trending-title">{{ trend.get_activity_type_display }}</div>
+                        <div class="trending-stats">
+                            <span class="trending-count">{{ trend.count }} activities</span>
+                            <span class="trending-change">
+                                {% if trend.change >= 0 %}
+                                    <i class="fas fa-arrow-up"></i> +{{ trend.change }}%
+                                {% else %}
+                                    <i class="fas fa-arrow-down"></i> {{ trend.change }}%
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-trending">
+                    <i class="fas fa-chart-line"></i>
+                    <p>No trending activities this week</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+.timeline-container::-webkit-scrollbar-thumb:hover,
+.trending-list::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, #2D4AEE 0%, #C500E9 100%);
+}
+
+.activity-item.hidden {
+    display: none;
+}
+
+.activity-item:hover .time-indicator {
+    transform: scale(1.1);
+    transition: transform 0.3s ease;
+}
+
+.activity-item:hover .activity-type-badge {
+    transform: scale(1.05);
+    transition: transform 0.3s ease;
+}
+
+.summary-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.trending-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.activity-item.new-activity {
+    animation: newActivityPulse 3s ease-in-out;
+    border-left-width: 6px;
+}
+
+@keyframes newActivityPulse {
+    0%, 100% { 
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    50% { 
+        box-shadow: 0 4px 16px rgba(61, 90, 254, 0.2);
+    }
+}
+
+.filter-menu label:hover {
+    background: #F3F4F6;
+    border-radius: 4px;
+    padding: 4px 6px;
+}
+
+.widget-actions .filter-btn.active {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.activity-content .activity-header .activity-title:hover {
+    color: #3D5AFE;
+    cursor: pointer;
+}
+
+.employee-info:hover .employee-avatar {
+    transform: scale(1.1);
+    transition: transform 0.3s ease;
+}
+
+.trending-change.positive {
+    color: #10B981;
+}
+
+.trending-change.negative {
+    color: #EF4444;
+}
+
+.activity-details .detail-item:hover {
+    background: #E5E7EB;
+    border-radius: 3px;
+    padding: 2px 4px;
+    margin: -2px -4px;
+}
+
+.time-indicator.pulsing {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.activity-item.priority-high {
+    border-left-width: 6px;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.02) 0%, rgba(255, 255, 255, 1) 100%);
+}
+
+.activity-item.priority-medium {
+    border-left-width: 5px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.02) 0%, rgba(255, 255, 255, 1) 100%);
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3D5AFE;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.activity-item .activity-content .activity-action .view-details-btn.loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.filter-menu .filter-count {
+    background: #3D5AFE;
+    color: #FFFFFF;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    font-size: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+}
+
+.activity-item.fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.activity-item.fade-out {
+    animation: fadeOut 0.3s ease-in-out forwards;
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-10px); }
+}
+
+.no-activities.loading {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.widget-header .widget-actions .refresh-btn.refreshing i {
+    animation: spin 1s linear infinite;
+}
+
+.activity-timeline .timeline-container.loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initRecentActivitiesWidget();
+        setupActivityFilters();
+        setupAutoRefresh();
+        setupActivityInteractions();
+    });
+    
+    function initRecentActivitiesWidget() {
+        const activityItems = document.querySelectorAll('.activity-item');
+        
+        activityItems.forEach((item, index) => {
+            setTimeout(() => {
+                item.classList.add('fade-in');
+            }, index * 100);
+        });
+        
+        setupActivityHovers();
+        setupTimeIndicators();
+        checkForNewActivities();
+    }
+    
+    function setupActivityFilters() {
+        const filterBtn = document.querySelector('.filter-btn');
+        const filterMenu = document.getElementById('activityFilterMenu');
+        const filterCheckboxes = filterMenu.querySelectorAll('input[type="checkbox"]');
+        
+        filterCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                filterActivities();
+                updateFilterButton();
+            });
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (!filterBtn.contains(e.target) && !filterMenu.contains(e.target)) {
+                filterMenu.classList.remove('show');
+            }
+        });
+    }
+    
+    function toggleActivityFilter() {
+        const filterMenu = document.getElementById('activityFilterMenu');
+        filterMenu.classList.toggle('show');
+    }
+    
+    function filterActivities() {
+        const filterMenu = document.getElementById('activityFilterMenu');
+        const checkedFilters = Array.from(filterMenu.querySelectorAll('input[type="checkbox"]:checked'))
+            .map(cb => cb.value);
+        
+        const activityItems = document.querySelectorAll('.activity-item');
+        let visibleCount = 0;
+        
+        activityItems.forEach(item => {
+            const activityType = item.dataset.activityType;
+            
+            if (checkedFilters.includes(activityType)) {
+                item.classList.remove('hidden');
+                item.classList.add('fade-in');
+                visibleCount++;
+            } else {
+                item.classList.add('fade-out');
+                setTimeout(() => {
+                    item.classList.add('hidden');
+                    item.classList.remove('fade-out');
+                }, 300);
+            }
+        });
+        
+        updateNoActivitiesMessage(visibleCount);
+    }
+    
+    function updateFilterButton() {
+        const filterBtn = document.querySelector('.filter-btn');
+        const filterMenu = document.getElementById('activityFilterMenu');
+        const checkedCount = filterMenu.querySelectorAll('input[type="checkbox"]:checked').length;
+        const totalCount = filterMenu.querySelectorAll('input[type="checkbox"]').length;
+        
+        if (checkedCount < totalCount) {
+            filterBtn.classList.add('active');
+            filterBtn.innerHTML = `<i class="fas fa-filter"></i> Filter (${checkedCount})`;
+        } else {
+            filterBtn.classList.remove('active');
+            filterBtn.innerHTML = `<i class="fas fa-filter"></i> Filter`;
+        }
+    }
+    
+    function updateNoActivitiesMessage(visibleCount) {
+        const timelineContainer = document.querySelector('.timeline-container');
+        let noActivitiesMsg = timelineContainer.querySelector('.no-activities');
+        
+        if (visibleCount === 0) {
+            if (!noActivitiesMsg) {
+                noActivitiesMsg = document.createElement('div');
+                noActivitiesMsg.className = 'no-activities';
+                noActivitiesMsg.innerHTML = `
+                    <i class="fas fa-filter"></i>
+                    <p>No activities match your filter</p>
+                    <small>Try adjusting your filter settings</small>
+                `;
+                timelineContainer.appendChild(noActivitiesMsg);
+            }
+            noActivitiesMsg.style.display = 'block';
+        } else if (noActivitiesMsg) {
+            noActivitiesMsg.style.display = 'none';
+        }
+    }
+    
+    function setupActivityHovers() {
+        const activityItems = document.querySelectorAll('.activity-item');
+        
+        activityItems.forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                const timeIndicator = this.querySelector('.time-indicator');
+                const typeBadge = this.querySelector('.activity-type-badge');
+                
+                if (timeIndicator) timeIndicator.style.transform = 'scale(1.1)';
+                if (typeBadge) typeBadge.style.transform = 'scale(1.05)';
+            });
+            
+            item.addEventListener('mouseleave', function() {
+                const timeIndicator = this.querySelector('.time-indicator');
+                const typeBadge = this.querySelector('.activity-type-badge');
+                
+                if (timeIndicator) timeIndicator.style.transform = 'scale(1)';
+                if (typeBadge) typeBadge.style.transform = 'scale(1)';
+            });
+        });
+    }
+    
+    function setupTimeIndicators() {
+        const now = new Date();
+        const timeIndicators = document.querySelectorAll('.time-indicator');
+        
+        timeIndicators.forEach(indicator => {
+            const activityItem = indicator.closest('.activity-item');
+            const activityDate = new Date(activityItem.querySelector('.activity-date').textContent + ' ' + new Date().getFullYear());
+            const timeDiff = now - activityDate;
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            
+            if (hoursDiff < 1) {
+                indicator.classList.add('pulsing');
+            }
+        });
+    }
+    
+    function checkForNewActivities() {
+        const activityItems = document.querySelectorAll('.activity-item');
+        const now = new Date();
+        
+        activityItems.forEach(item => {
+            const activityDate = new Date(item.querySelector('.activity-date').textContent + ' ' + new Date().getFullYear());
+            const timeDiff = now - activityDate;
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            
+            if (hoursDiff < 2) {
+                item.classList.add('new-activity');
+            }
+        });
+    }
+    
+    function setupActivityInteractions() {
+        const viewDetailsButtons = document.querySelectorAll('.view-details-btn');
+        const activityTitles = document.querySelectorAll('.activity-title');
+        
+        viewDetailsButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                this.classList.add('loading');
+                this.innerHTML = '<span class="loading-spinner"></span> Loading...';
+                
+                setTimeout(() => {
+                    window.location.href = this.href;
+                }, 500);
+            });
+        });
+        
+        activityTitles.forEach(title => {
+            title.addEventListener('click', function() {
+                const activityItem = this.closest('.activity-item');
+                const viewDetailsBtn = activityItem.querySelector('.view-details-btn');
+                
+                if (viewDetailsBtn) {
+                    viewDetailsBtn.click();
+                }
+            });
+        });
+    }
+    
+    function setupAutoRefresh() {
+        setInterval(() => {
+            const now = new Date();
+            const hours = now.getHours();
+            
+            if (hours >= 8 && hours <= 18) {
+                refreshRecentActivities();
+            }
+        }, 300000); // 5 minutes
+    }
+    
+    function refreshRecentActivities() {
+        const refreshBtn = document.querySelector('.refresh-btn');
+        const icon = refreshBtn.querySelector('i');
+        const timelineContainer = document.querySelector('.timeline-container');
+        
+        icon.classList.add('fa-spin');
+        refreshBtn.classList.add('refreshing');
+        refreshBtn.disabled = true;
+        timelineContainer.classList.add('loading');
+        
+        fetch('/admin/employees/dashboard/refresh-recent-activities/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateActivityCounts(data);
+                    updateActivityTimeline(data.activities);
+                    updateTrendingActivities(data.trending);
+                    
+                    if (data.new_activities_count > 0) {
+                        showNewActivitiesNotification(data.new_activities_count);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error refreshing recent activities:', error);
+                showErrorNotification('Failed to refresh recent activities');
+            })
+            .finally(() => {
+                icon.classList.remove('fa-spin');
+                refreshBtn.classList.remove('refreshing');
+                refreshBtn.disabled = false;
+                timelineContainer.classList.remove('loading');
+            });
+    }
+    
+    function updateActivityCounts(data) {
+        const summaryNumbers = document.querySelectorAll('.activities-summary .summary-number');
+        if (summaryNumbers[0]) summaryNumbers[0].textContent = data.activities_today || 0;
+        if (summaryNumbers[1]) summaryNumbers[1].textContent = data.activities_this_week || 0;
+        if (summaryNumbers[2]) summaryNumbers[2].textContent = data.activities_this_month || 0;
+        
+        const statNumbers = document.querySelectorAll('.stats-grid .stat-number');
+        if (statNumbers[0]) statNumbers[0].textContent = data.hire_activities || 0;
+        if (statNumbers[1]) statNumbers[1].textContent = data.promotion_activities || 0;
+        if (statNumbers[2]) statNumbers[2].textContent = data.termination_activities || 0;
+        if (statNumbers[3]) statNumbers[3].textContent = data.contract_activities || 0;
+        if (statNumbers[4]) statNumbers[4].textContent = data.education_activities || 0;
+    }
+    
+    function updateActivityTimeline(activities) {
+        const timelineContainer = document.querySelector('.timeline-container');
+        const existingActivities = timelineContainer.querySelectorAll('.activity-item');
+        
+        existingActivities.forEach(item => {
+            item.classList.add('fade-out');
+            setTimeout(() => item.remove(), 300);
+        });
+        
+        setTimeout(() => {
+            activities.forEach((activity, index) => {
+                const activityElement = createActivityElement(activity);
+                timelineContainer.appendChild(activityElement);
+                
+                setTimeout(() => {
+                    activityElement.classList.add('fade-in');
+                }, index * 50);
+            });
+            
+            setupActivityHovers();
+            setupActivityInteractions();
+        }, 300);
+    }
+    
+    function createActivityElement(activity) {
+        const activityDiv = document.createElement('div');
+        activityDiv.className = `activity-item ${activity.activity_type.toLowerCase()}`;
+        activityDiv.dataset.activityType = activity.activity_type.toLowerCase();
+        
+        activityDiv.innerHTML = `
+            <div class="activity-time">
+                <div class="time-indicator">
+                    <i class="fas fa-${getActivityIcon(activity.activity_type)}"></i>
+                </div>
+                <div class="time-details">
+                    <div class="activity-date">${formatDate(activity.created_at)}</div>
+                    <div class="activity-time-stamp">${formatTime(activity.created_at)}</div>
+                </div>
+            </div>
+            <div class="activity-content">
+                <div class="activity-header">
+                    <div class="activity-title">${activity.title}</div>
+                    <div class="activity-type-badge">${activity.activity_type}</div>
+                </div>
+                <div class="activity-description">${activity.description}</div>
+                <div class="activity-meta">
+                    <div class="employee-info">
+                        <div class="employee-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="employee-details">
+                            <span class="employee-name">${activity.employee_name}</span>
+                            <span class="employee-department">${activity.employee_department || 'No Department'}</span>
+                        </div>
+                    </div>
+                </div>
+                ${activity.related_url ? `
+                    <div class="activity-action">
+                        <a href="${activity.related_url}" class="view-details-btn">
+                            <i class="fas fa-external-link-alt"></i> View Details
+                        </a>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        
+        return activityDiv;
+    }
+    
+    function getActivityIcon(activityType) {
+        const icons = {
+            'HIRE': 'user-plus',
+            'PROMOTION': 'arrow-up',
+            'TERMINATION': 'user-times',
+            'CONTRACT': 'file-contract',
+            'EDUCATION': 'graduation-cap'
+        };
+        return icons[activityType] || 'info-circle';
+    }
+    
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    
+    function formatTime(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+    
+    function updateTrendingActivities(trending) {
+        const trendingList = document.querySelector('.trending-list');
+        trendingList.innerHTML = '';
+        
+        trending.forEach(trend => {
+            const trendElement = document.createElement('div');
+            trendElement.className = 'trending-item';
+            trendElement.innerHTML = `
+                <div class="trending-icon">
+                    <i class="fas fa-${getActivityIcon(trend.activity_type)}"></i>
+                </div>
+                <div class="trending-content">
+                    <div class="trending-title">${trend.activity_type}</div>
+                    <div class="trending-stats">
+                        <span class="trending-count">${trend.count} activities</span>
+                        <span class="trending-change ${trend.change >= 0 ? 'positive' : 'negative'}">
+                            <i class="fas fa-arrow-${trend.change >= 0 ? 'up' : 'down'}"></i> ${Math.abs(trend.change)}%
+                        </span>
+                    </div>
+                </div>
+            `;
+            trendingList.appendChild(trendElement);
+        });
+    }
+    
+    function showNewActivitiesNotification(count) {
+        const notification = document.createElement('div');
+        notification.innerHTML = `
+            <i class="fas fa-bell"></i>
+            <strong>${count}</strong> new activit${count > 1 ? 'ies' : 'y'} added!
+            <button onclick="this.parentElement.remove()" style="background: none; border: none; color: white; margin-left: 10px; cursor: pointer;">×</button>
+        `;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            animation: slideInRight 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 300px;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }, 5000);
+    }
+    
+    function showErrorNotification(message) {
+        const notification = document.createElement('div');
+        notification.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 4000);
+    }
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    </script>
+    {% endblock %}
+

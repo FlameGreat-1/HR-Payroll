@@ -1,0 +1,395 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_urls %}
+
+{% block title %}Employee Search Results - {{ site_title|default:"Django site admin" }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/changelists.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='employees' %}">Employees</a>
+    &rsaquo; Search Results
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="search-results-container">
+    <div class="results-header">
+        <h1>Employee Search Results</h1>
+        <div class="search-info">
+            <span class="results-count">{{ results.count }} result{{ results.count|pluralize }} found</span>
+            {% if search_query %}
+            <span class="search-query">for "{{ search_query }}"</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="search-filters">
+        <form method="get" class="filter-form">
+            <div class="filter-row">
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Search employees..." class="search-input">
+                
+                <select name="department" class="filter-select">
+                    <option value="">All Departments</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}" {% if request.GET.department == dept.id|stringformat:"s" %}selected{% endif %}>
+                        {{ dept.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                
+                <select name="status" class="filter-select">
+                    <option value="">All Status</option>
+                    <option value="ACTIVE" {% if request.GET.status == "ACTIVE" %}selected{% endif %}>Active</option>
+                    <option value="PROBATION" {% if request.GET.status == "PROBATION" %}selected{% endif %}>Probation</option>
+                    <option value="INACTIVE" {% if request.GET.status == "INACTIVE" %}selected{% endif %}>Inactive</option>
+                </select>
+                
+                <button type="submit" class="search-btn">Search</button>
+                <a href="{% url 'admin:employees_employee_search' %}" class="clear-btn">Clear</a>
+            </div>
+        </form>
+    </div>
+
+    {% if results %}
+    <div class="results-table">
+        <table class="employee-results">
+            <thead>
+                <tr>
+                    <th><a href="?{{ request.GET.urlencode }}&sort=name">Name</a></th>
+                    <th><a href="?{{ request.GET.urlencode }}&sort=employee_id">Employee ID</a></th>
+                    <th><a href="?{{ request.GET.urlencode }}&sort=department">Department</a></th>
+                    <th><a href="?{{ request.GET.urlencode }}&sort=job_title">Position</a></th>
+                    <th><a href="?{{ request.GET.urlencode }}&sort=status">Status</a></th>
+                    <th><a href="?{{ request.GET.urlencode }}&sort=hire_date">Hire Date</a></th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for employee in results %}
+                <tr class="employee-row">
+                    <td class="employee-name">
+                        <div class="name-cell">
+                            <strong>{{ employee.user.get_full_name }}</strong>
+                            <small>{{ employee.user.email }}</small>
+                        </div>
+                    </td>
+                    <td class="employee-id">{{ employee.employee_id }}</td>
+                    <td class="department">{{ employee.user.department.name|default:"—" }}</td>
+                    <td class="job-title">{{ employee.user.job_title|default:"—" }}</td>
+                    <td class="status">
+                        <span class="status-badge status-{{ employee.employment_status|lower }}">
+                            {{ employee.get_employment_status_display }}
+                        </span>
+                    </td>
+                    <td class="hire-date">{{ employee.user.hire_date|date:"M d, Y"|default:"—" }}</td>
+                    <td class="actions">
+                        <a href="{% url 'admin:employees_employeeprofile_change' employee.pk %}" class="action-link">Edit</a>
+                        <a href="{% url 'admin:employees_employeeprofile_delete' employee.pk %}" class="action-link delete">Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="pagination">
+        <span class="pagination-info">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+        <div class="pagination-links">
+            {% if page_obj.has_previous %}
+            <a href="?{{ request.GET.urlencode }}&page=1" class="page-link">First</a>
+            <a href="?{{ request.GET.urlencode }}&page={{ page_obj.previous_page_number }}" class="page-link">Previous</a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <span class="page-current">{{ num }}</span>
+            {% else %}
+            <a href="?{{ request.GET.urlencode }}&page={{ num }}" class="page-link">{{ num }}</a>
+            {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <a href="?{{ request.GET.urlencode }}&page={{ page_obj.next_page_number }}" class="page-link">Next</a>
+            <a href="?{{ request.GET.urlencode }}&page={{ page_obj.paginator.num_pages }}" class="page-link">Last</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="no-results">
+        <h3>No employees found</h3>
+        <p>Try adjusting your search criteria or <a href="{% url 'admin:employees_employee_search' %}">start a new search</a>.</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.search-results-container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.results-header h1 {
+    margin: 0;
+    color: #333;
+}
+
+.search-info {
+    font-size: 14px;
+    color: #666;
+}
+
+.results-count {
+    font-weight: bold;
+}
+
+.search-query {
+    font-style: italic;
+}
+
+.search-filters {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.filter-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.search-input, .filter-select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.search-input {
+    flex: 1;
+    min-width: 200px;
+}
+
+.filter-select {
+    min-width: 120px;
+}
+
+.search-btn, .clear-btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+}
+
+.search-btn {
+    background: #007cba;
+    color: white;
+}
+
+.search-btn:hover {
+    background: #005a87;
+}
+
+.clear-btn {
+    background: #6c757d;
+    color: white;
+}
+
+.clear-btn:hover {
+    background: #545b62;
+    color: white;
+}
+
+.results-table {
+    background: white;
+    border-radius: 5px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.employee-results {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.employee-results th {
+    background: #f1f1f1;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 1px solid #ddd;
+}
+
+.employee-results th a {
+    color: #333;
+    text-decoration: none;
+}
+
+.employee-results th a:hover {
+    color: #007cba;
+}
+
+.employee-results td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.employee-row:hover {
+    background: #f8f9fa;
+}
+
+.name-cell strong {
+    display: block;
+    color: #333;
+}
+
+.name-cell small {
+    color: #666;
+    font-size: 12px;
+}
+
+.employee-id {
+    font-family: monospace;
+    font-weight: bold;
+}
+
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-probation {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.action-link {
+    color: #007cba;
+    text-decoration: none;
+    margin-right: 10px;
+    font-size: 13px;
+}
+
+.action-link:hover {
+    text-decoration: underline;
+}
+
+.action-link.delete {
+    color: #dc3545;
+}
+
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding: 15px 0;
+}
+
+.pagination-info {
+    color: #666;
+    font-size: 14px;
+}
+
+.pagination-links {
+    display: flex;
+    gap: 5px;
+}
+
+.page-link, .page-current {
+    padding: 6px 12px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.page-link {
+    color: #007cba;
+    border: 1px solid #ddd;
+}
+
+.page-link:hover {
+    background: #f8f9fa;
+}
+
+.page-current {
+    background: #007cba;
+    color: white;
+    border: 1px solid #007cba;
+}
+
+.no-results {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+.no-results h3 {
+    margin-bottom: 10px;
+    color: #333;
+}
+
+@media (max-width: 768px) {
+    .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .search-input, .filter-select, .search-btn, .clear-btn {
+        width: 100%;
+        margin-bottom: 5px;
+    }
+    
+    .results-table {
+        overflow-x: auto;
+    }
+    
+    .employee-results {
+        min-width: 600px;
+    }
+    
+    .pagination {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+</style>
+{% endblock %}

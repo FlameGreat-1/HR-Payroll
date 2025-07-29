@@ -1,0 +1,899 @@
+{% load i18n static %}
+
+<div class="contract-expiry-widget">
+    <div class="widget-header">
+        <h3><i class="fas fa-file-contract"></i> Contract Expiry Alerts</h3>
+        <div class="widget-actions">
+            <a href="{% url 'admin:employees_contract_changelist' %}?status=ACTIVE" class="view-all-btn">
+                <i class="fas fa-external-link-alt"></i> View All
+            </a>
+            <button class="refresh-btn" onclick="refreshContractExpiry()">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="widget-content">
+        <div class="expiry-summary">
+            <div class="summary-item critical">
+                <div class="summary-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="summary-details">
+                    <div class="summary-number">{{ expiring_this_week|default:0 }}</div>
+                    <div class="summary-label">Expiring This Week</div>
+                </div>
+            </div>
+            
+            <div class="summary-item warning">
+                <div class="summary-icon">
+                    <i class="fas fa-calendar-times"></i>
+                </div>
+                <div class="summary-details">
+                    <div class="summary-number">{{ expiring_this_month|default:0 }}</div>
+                    <div class="summary-label">Expiring This Month</div>
+                </div>
+            </div>
+            
+            <div class="summary-item expired">
+                <div class="summary-icon">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="summary-details">
+                    <div class="summary-number">{{ already_expired|default:0 }}</div>
+                    <div class="summary-label">Already Expired</div>
+                </div>
+            </div>
+            
+            <div class="summary-item info">
+                <div class="summary-icon">
+                    <i class="fas fa-file-signature"></i>
+                </div>
+                <div class="summary-details">
+                    <div class="summary-number">{{ total_active_contracts|default:0 }}</div>
+                    <div class="summary-label">Active Contracts</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="critical-expiry">
+            <h4><i class="fas fa-fire"></i> Critical - Expiring Within 7 Days</h4>
+            <div class="contracts-list">
+                {% for contract in critical_expiry_contracts %}
+                <div class="contract-item critical">
+                    <div class="contract-priority">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <div class="employee-info">
+                        <div class="employee-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="employee-details">
+                            <div class="employee-name">{{ contract.employee.get_full_name }}</div>
+                            <div class="employee-meta">
+                                <span class="contract-number">{{ contract.contract_number }}</span>
+                                <span class="separator">•</span>
+                                <span class="department">{{ contract.employee.department.name|default:"No Department" }}</span>
+                                <span class="separator">•</span>
+                                <span class="contract-type">{{ contract.get_contract_type_display }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="contract-info">
+                        <div class="expiry-date">{{ contract.end_date|date:"M d, Y" }}</div>
+                        <div class="days-remaining">
+                            {% with days_left=contract.days_remaining %}
+                                {% if days_left <= 0 %}
+                                    <span class="expired-today">Expired</span>
+                                {% elif days_left == 1 %}
+                                    <span class="expiring-tomorrow">Tomorrow</span>
+                                {% else %}
+                                    <span class="days-left">{{ days_left }} day{{ days_left|pluralize }} left</span>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    <div class="contract-actions">
+                        <a href="{% url 'admin:employees_contract_renew' contract.pk %}" class="renew-btn">
+                            <i class="fas fa-redo"></i> Renew
+                        </a>
+                        <a href="{% url 'admin:employees_contract_change' contract.pk %}" class="edit-btn">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-critical-expiry">
+                    <i class="fas fa-check-circle"></i>
+                    <p>No contracts expiring within 7 days</p>
+                    <small>All critical contracts are secure</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="upcoming-expiry">
+            <h4><i class="fas fa-calendar-week"></i> Upcoming - Expiring Within 30 Days</h4>
+            <div class="contracts-list">
+                {% for contract in upcoming_expiry_contracts %}
+                <div class="contract-item upcoming">
+                    <div class="contract-priority">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                    <div class="employee-info">
+                        <div class="employee-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="employee-details">
+                            <div class="employee-name">{{ contract.employee.get_full_name }}</div>
+                            <div class="employee-meta">
+                                <span class="contract-number">{{ contract.contract_number }}</span>
+                                <span class="separator">•</span>
+                                <span class="department">{{ contract.employee.department.name|default:"No Department" }}</span>
+                                <span class="separator">•</span>
+                                <span class="salary">${{ contract.basic_salary|floatformat:0 }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="contract-info">
+                        <div class="expiry-date">{{ contract.end_date|date:"M d, Y" }}</div>
+                        <div class="days-remaining">
+                            {% with days_left=contract.days_remaining %}
+                                <span class="days-left">{{ days_left }} days left</span>
+                            {% endwith %}
+                        </div>
+                    </div>
+                    <div class="contract-actions">
+                        <a href="{% url 'admin:employees_contract_change' contract.pk %}" class="view-btn">
+                            <i class="fas fa-eye"></i> View
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-upcoming-expiry">
+                    <i class="fas fa-calendar-check"></i>
+                    <p>No contracts expiring within 30 days</p>
+                    <small>Next month is clear</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="expired-contracts">
+            <h4><i class="fas fa-times-circle"></i> Expired - Require Immediate Action</h4>
+            <div class="contracts-list">
+                {% for contract in expired_contracts %}
+                <div class="contract-item expired">
+                    <div class="contract-priority">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div class="employee-info">
+                        <div class="employee-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="employee-details">
+                            <div class="employee-name">{{ contract.employee.get_full_name }}</div>
+                            <div class="employee-meta">
+                                <span class="contract-number">{{ contract.contract_number }}</span>
+                                <span class="separator">•</span>
+                                <span class="department">{{ contract.employee.department.name|default:"No Department" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="contract-info">
+                        <div class="expiry-date expired">{{ contract.end_date|date:"M d, Y" }}</div>
+                        <div class="days-remaining">
+                            {% with days_overdue=contract.end_date|timesince %}
+                                <span class="overdue-text">{{ days_overdue|slice:":10" }} overdue</span>
+                            {% endwith %}
+                        </div>
+                    </div>
+                    <div class="contract-actions">
+                        <a href="{% url 'admin:employees_contract_renew' contract.pk %}" class="renew-btn urgent">
+                            <i class="fas fa-redo"></i> Renew Now
+                        </a>
+                        <a href="{% url 'admin:employees_contract_terminate' contract.pk %}" class="terminate-btn">
+                            <i class="fas fa-times"></i> Terminate
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-expired-contracts">
+                    <i class="fas fa-thumbs-up"></i>
+                    <p>No expired contracts</p>
+                    <small>All contracts are up to date</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="contract-timeline">
+            <h4><i class="fas fa-chart-gantt"></i> Contract Expiry Timeline (Next 90 Days)</h4>
+            <div class="timeline-container">
+                {% for week in contract_timeline %}
+                <div class="timeline-week">
+                    <div class="week-header">
+                        <span class="week-label">{{ week.start_date|date:"M d" }} - {{ week.end_date|date:"M d" }}</span>
+                        <span class="week-count">{{ week.expiring_count }} expiring</span>
+                    </div>
+                    {% if week.contracts %}
+                    <div class="week-contracts">
+                        {% for contract in week.contracts %}
+                        <div class="timeline-contract">
+                            <div class="contract-employee">
+                                <span class="employee-name">{{ contract.employee.get_full_name }}</span>
+                                <span class="contract-type">{{ contract.get_contract_type_display }}</span>
+                            </div>
+                            <div class="contract-value">${{ contract.basic_salary|floatformat:0 }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="no-timeline-data">
+                    <i class="fas fa-calendar"></i>
+                    <p>No contracts expiring in the next 90 days</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="renewal-recommendations">
+            <h4><i class="fas fa-lightbulb"></i> Renewal Recommendations</h4>
+            <div class="recommendations-list">
+                {% for recommendation in renewal_recommendations %}
+                <div class="recommendation-item">
+                    <div class="recommendation-icon">
+                        {% if recommendation.priority == 'HIGH' %}
+                            <i class="fas fa-star"></i>
+                        {% elif recommendation.priority == 'MEDIUM' %}
+                            <i class="fas fa-star-half-alt"></i>
+                        {% else %}
+                            <i class="far fa-star"></i>
+                        {% endif %}
+                    </div>
+                    <div class="recommendation-content">
+                        <div class="recommendation-title">{{ recommendation.employee_name }}</div>
+                        <div class="recommendation-reason">{{ recommendation.reason }}</div>
+                        <div class="recommendation-meta">
+                            <span class="priority-{{ recommendation.priority|lower }}">{{ recommendation.priority }} Priority</span>
+                            <span class="separator">•</span>
+                            <span class="contract-value">${{ recommendation.contract_value|floatformat:0 }}</span>
+                        </div>
+                    </div>
+                    <div class="recommendation-action">
+                        <a href="{% url 'admin:employees_contract_renew' recommendation.contract_id %}" class="recommend-btn">
+                            <i class="fas fa-thumbs-up"></i> Recommend
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="no-recommendations">
+                    <i class="fas fa-clipboard-check"></i>
+                    <p>No renewal recommendations at this time</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+.recommendation-meta {
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.priority-high {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+    padding: 1px 4px;
+    border-radius: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.priority-medium {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    color: #FFFFFF;
+    padding: 1px 4px;
+    border-radius: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.priority-low {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: #FFFFFF;
+    padding: 1px 4px;
+    border-radius: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.recommendation-action {
+    display: flex;
+    align-items: center;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@media (max-width: 768px) {
+    .expiry-summary {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    
+    .summary-item {
+        padding: 12px;
+    }
+    
+    .summary-number {
+        font-size: 18px;
+    }
+    
+    .contract-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .employee-info {
+        width: 100%;
+    }
+    
+    .contract-info {
+        width: 100%;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .contract-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    .recommendation-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .recommendation-content {
+        width: 100%;
+    }
+    
+    .recommendation-action {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 480px) {
+    .widget-content {
+        padding: 16px;
+    }
+    
+    .expiry-summary {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .summary-item {
+        padding: 10px;
+    }
+    
+    .contract-item {
+        padding: 10px;
+    }
+    
+    .employee-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    
+    .timeline-container {
+        max-height: 200px;
+    }
+    
+    .recommendations-list {
+        max-height: 150px;
+    }
+}
+
+.widget-content::-webkit-scrollbar,
+.contracts-list::-webkit-scrollbar,
+.timeline-container::-webkit-scrollbar,
+.recommendations-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.widget-content::-webkit-scrollbar-track,
+.contracts-list::-webkit-scrollbar-track,
+.timeline-container::-webkit-scrollbar-track,
+.recommendations-list::-webkit-scrollbar-track {
+    background: #F3F4F6;
+    border-radius: 3px;
+}
+
+.widget-content::-webkit-scrollbar-thumb,
+.contracts-list::-webkit-scrollbar-thumb,
+.timeline-container::-webkit-scrollbar-thumb,
+.recommendations-list::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    border-radius: 3px;
+}
+
+.widget-content::-webkit-scrollbar-thumb:hover,
+.contracts-list::-webkit-scrollbar-thumb:hover,
+.timeline-container::-webkit-scrollbar-thumb:hover,
+.recommendations-list::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, #2D4AEE 0%, #C500E9 100%);
+}
+
+.contract-item.critical:hover {
+    border-left-color: #DC2626;
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15);
+}
+
+.contract-item.upcoming:hover {
+    border-left-color: #D97706;
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.15);
+}
+
+.contract-item.expired:hover {
+    border-left-color: #B91C1C;
+    box-shadow: 0 4px 16px rgba(220, 38, 38, 0.15);
+}
+
+.timeline-week:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+    transition: all 0.3s ease;
+}
+
+.recommendation-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+    transition: all 0.3s ease;
+}
+
+.critical-expiry .contracts-list {
+    border-left: 3px solid #EF4444;
+    padding-left: 8px;
+}
+
+.upcoming-expiry .contracts-list {
+    border-left: 3px solid #F59E0B;
+    padding-left: 8px;
+}
+
+.expired-contracts .contracts-list {
+    border-left: 3px solid #DC2626;
+    padding-left: 8px;
+}
+
+.contract-item .employee-avatar {
+    position: relative;
+}
+
+.contract-item.critical .employee-avatar::after {
+    content: '!';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    background: #EF4444;
+    color: #FFFFFF;
+    border-radius: 50%;
+    font-size: 8px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.contract-item.expired .employee-avatar::after {
+    content: '×';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    background: #DC2626;
+    color: #FFFFFF;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.summary-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.summary-item.critical:hover {
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2);
+}
+
+.summary-item.warning:hover {
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
+}
+
+.summary-item.expired:hover {
+    box-shadow: 0 4px 16px rgba(220, 38, 38, 0.2);
+}
+
+.summary-item.info:hover {
+    box-shadow: 0 4px 16px rgba(61, 90, 254, 0.2);
+}
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initContractExpiryWidget();
+        setupExpiryNotifications();
+        setupAutoRefresh();
+        setupActionHandlers();
+    });
+    
+    function initContractExpiryWidget() {
+        const criticalContracts = document.querySelectorAll('.contract-item.critical');
+        const expiredContracts = document.querySelectorAll('.contract-item.expired');
+        
+        if (criticalContracts.length > 0) {
+            showCriticalExpiryNotification(criticalContracts.length);
+        }
+        
+        if (expiredContracts.length > 0) {
+            showExpiredContractsNotification(expiredContracts.length);
+        }
+        
+        setupContractHovers();
+        setupPriorityAnimations();
+    }
+    
+    function showCriticalExpiryNotification(count) {
+        const notification = document.createElement('div');
+        notification.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>${count}</strong> contract${count > 1 ? 's' : ''} expiring within 7 days!
+            <button onclick="this.parentElement.remove()" style="background: none; border: none; color: white; margin-left: 10px; cursor: pointer;">×</button>
+        `;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+            animation: slideInRight 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 300px;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }, 8000);
+    }
+    
+    function showExpiredContractsNotification(count) {
+        const notification = document.createElement('div');
+        notification.innerHTML = `
+            <i class="fas fa-times-circle"></i>
+            <strong>${count}</strong> expired contract${count > 1 ? 's' : ''} require immediate action!
+            <button onclick="this.parentElement.remove()" style="background: none; border: none; color: white; margin-left: 10px; cursor: pointer;">×</button>
+        `;
+        notification.style.cssText = `
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: linear-gradient(90deg, #DC2626 0%, #B91C1C 100%);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+            animation: slideInRight 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 300px;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }, 10000);
+    }
+    
+    function setupContractHovers() {
+        const contractItems = document.querySelectorAll('.contract-item');
+        contractItems.forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-2px)';
+                const priority = this.querySelector('.contract-priority');
+                if (priority) {
+                    priority.style.transform = 'scale(1.1)';
+                }
+            });
+            
+            item.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+                const priority = this.querySelector('.contract-priority');
+                if (priority) {
+                    priority.style.transform = 'scale(1)';
+                }
+            });
+        });
+    }
+    
+    function setupPriorityAnimations() {
+        const expiredTodayElements = document.querySelectorAll('.expired-today');
+        const expiringTomorrowElements = document.querySelectorAll('.expiring-tomorrow');
+        const urgentRenewButtons = document.querySelectorAll('.renew-btn.urgent');
+        
+        expiredTodayElements.forEach(element => {
+            element.style.animation = 'pulse 1s infinite';
+        });
+        
+        expiringTomorrowElements.forEach(element => {
+            element.style.animation = 'pulse 1.5s infinite';
+        });
+        
+        urgentRenewButtons.forEach(button => {
+            button.style.animation = 'pulse 2s infinite';
+        });
+    }
+    
+    function setupActionHandlers() {
+        const renewButtons = document.querySelectorAll('.renew-btn');
+        const terminateButtons = document.querySelectorAll('.terminate-btn');
+        const recommendButtons = document.querySelectorAll('.recommend-btn');
+        
+        renewButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const contractItem = this.closest('.contract-item');
+                const employeeName = contractItem.querySelector('.employee-name').textContent;
+                const isUrgent = this.classList.contains('urgent');
+                
+                const message = isUrgent 
+                    ? `This contract has expired! Are you sure you want to renew ${employeeName}'s contract?`
+                    : `Are you sure you want to renew ${employeeName}'s contract?`;
+                
+                const confirmRenewal = confirm(message);
+                
+                if (confirmRenewal) {
+                    const loadingSpinner = document.createElement('i');
+                    loadingSpinner.className = 'fas fa-spinner fa-spin';
+                    this.innerHTML = '';
+                    this.appendChild(loadingSpinner);
+                    this.appendChild(document.createTextNode(' Processing...'));
+                    this.style.pointerEvents = 'none';
+                    
+                    window.location.href = this.href;
+                }
+            });
+        });
+        
+        terminateButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const contractItem = this.closest('.contract-item');
+                const employeeName = contractItem.querySelector('.employee-name').textContent;
+                
+                const confirmTermination = confirm(`Are you sure you want to terminate ${employeeName}'s contract? This action cannot be undone.`);
+                
+                if (confirmTermination) {
+                    const secondConfirm = confirm('This will permanently terminate the contract. Are you absolutely sure?');
+                    if (secondConfirm) {
+                        window.location.href = this.href;
+                    }
+                }
+            });
+        });
+        
+        recommendButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const recommendationItem = this.closest('.recommendation-item');
+                const employeeName = recommendationItem.querySelector('.recommendation-title').textContent;
+                
+                const confirmRecommendation = confirm(`Proceed with renewal recommendation for ${employeeName}?`);
+                
+                if (confirmRecommendation) {
+                    window.location.href = this.href;
+                }
+            });
+        });
+    }
+    
+    function setupExpiryNotifications() {
+        const today = new Date();
+        const contractItems = document.querySelectorAll('.contract-item');
+        
+        contractItems.forEach(item => {
+            const expiryDateText = item.querySelector('.expiry-date').textContent;
+            const expiryDate = new Date(expiryDateText);
+            const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+            
+            if (daysUntilExpiry <= 0) {
+                item.classList.add('contract-expired-animation');
+            } else if (daysUntilExpiry <= 3) {
+                item.classList.add('contract-critical-animation');
+            }
+        });
+    }
+    
+    function setupAutoRefresh() {
+        setInterval(() => {
+            const now = new Date();
+            const hours = now.getHours();
+            
+            if (hours >= 9 && hours <= 17) {
+                refreshContractExpiry();
+            }
+        }, 600000);
+    }
+    
+    function refreshContractExpiry() {
+        const refreshBtn = document.querySelector('.refresh-btn');
+        const icon = refreshBtn.querySelector('i');
+        
+        icon.classList.add('fa-spin');
+        refreshBtn.disabled = true;
+        
+        fetch('/admin/employees/dashboard/refresh-contract-expiry/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateExpiryCounts(data);
+                    if (data.new_critical_contracts > 0) {
+                        showCriticalExpiryNotification(data.new_critical_contracts);
+                    }
+                    if (data.new_expired_contracts > 0) {
+                        showExpiredContractsNotification(data.new_expired_contracts);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error refreshing contract expiry data:', error);
+                showErrorNotification('Failed to refresh contract expiry data');
+            })
+            .finally(() => {
+                icon.classList.remove('fa-spin');
+                refreshBtn.disabled = false;
+            });
+    }
+    
+    function updateExpiryCounts(data) {
+        const summaryNumbers = document.querySelectorAll('.summary-number');
+        if (summaryNumbers[0]) summaryNumbers[0].textContent = data.expiring_this_week || 0;
+        if (summaryNumbers[1]) summaryNumbers[1].textContent = data.expiring_this_month || 0;
+        if (summaryNumbers[2]) summaryNumbers[2].textContent = data.already_expired || 0;
+        if (summaryNumbers[3]) summaryNumbers[3].textContent = data.total_active_contracts || 0;
+    }
+    
+    function showErrorNotification(message) {
+        const notification = document.createElement('div');
+        notification.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 4000);
+    }
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .contract-expired-animation {
+            animation: contractExpiredPulse 2s infinite;
+        }
+        
+        .contract-critical-animation {
+            animation: contractCriticalPulse 3s infinite;
+        }
+        
+        @keyframes contractExpiredPulse {
+            0%, 100% { 
+                border-left-color: #DC2626;
+                box-shadow: 0 2px 8px rgba(220, 38, 38, 0.1);
+            }
+            50% { 
+                border-left-color: #B91C1C;
+                box-shadow: 0 4px 16px rgba(220, 38, 38, 0.3);
+            }
+        }
+        
+        @keyframes contractCriticalPulse {
+            0%, 100% { 
+                border-left-color: #EF4444;
+                box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
+            }
+            50% { 
+                border-left-color: #DC2626;
+                box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2);
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    window.addEventListener('beforeunload', function() {
+        const criticalContracts = document.querySelectorAll('.contract-item.critical').length;
+        const expiredContracts = document.querySelectorAll('.contract-item.expired').length;
+        
+        if (criticalContracts > 0 || expiredContracts > 0) {
+            return 'You have contracts requiring immediate attention. Are you sure you want to leave?';
+        }
+    });
+    </script>
+    {% endblock %}
+    
+

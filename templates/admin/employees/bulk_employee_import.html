@@ -1,0 +1,1846 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_urls %}
+
+{% block title %}Bulk Employee Import - {{ site_title|default:"Django site admin" }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}">
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/widgets.css' %}">
+<script src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
+<script src="{% static 'admin/js/jquery.init.js' %}"></script>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='employees' %}">Employees</a>
+    &rsaquo; Bulk Employee Import
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="bulk-import-container">
+    <div class="page-header">
+        <h1><i class="fas fa-upload"></i> Bulk Employee Import</h1>
+        <div class="header-actions">
+            <a href="{% url 'admin:employees_employeeprofile_changelist' %}" class="back-btn">
+                <i class="fas fa-arrow-left"></i> Back to Employees
+            </a>
+            <a href="{% url 'admin:employees_download_import_template' %}" class="template-btn">
+                <i class="fas fa-download"></i> Download Template
+            </a>
+        </div>
+    </div>
+
+    <div class="import-steps">
+        <div class="step-indicator">
+            <div class="step active" data-step="1">
+                <div class="step-number">1</div>
+                <div class="step-label">Upload File</div>
+            </div>
+            <div class="step" data-step="2">
+                <div class="step-number">2</div>
+                <div class="step-label">Validate Data</div>
+            </div>
+            <div class="step" data-step="3">
+                <div class="step-number">3</div>
+                <div class="step-label">Review & Import</div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="importForm">
+        {% csrf_token %}
+        
+        <div class="step-content" id="step1">
+            <div class="upload-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-file-upload"></i> File Upload</h2>
+                </div>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h3>Drag & Drop your file here</h3>
+                        <p>or click to browse</p>
+                        <input type="file" id="fileInput" name="import_file" accept=".csv,.xlsx,.xls" hidden>
+                        <div class="file-types">
+                            <span>Supported formats: CSV, Excel (.xlsx, .xls)</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <div class="file-details">
+                        <div class="file-icon">
+                            <i class="fas fa-file-excel"></i>
+                        </div>
+                        <div class="file-meta">
+                            <div class="file-name" id="fileName"></div>
+                            <div class="file-size" id="fileSize"></div>
+                        </div>
+                        <button type="button" class="remove-file-btn" onclick="removeFile()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="import-options">
+                    <div class="option-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="skip_duplicates" checked>
+                            <span class="checkbox-custom"></span>
+                            Skip duplicate employees (based on email or employee ID)
+                        </label>
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="update_existing">
+                            <span class="checkbox-custom"></span>
+                            Update existing employees with new data
+                        </label>
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="send_welcome_emails" checked>
+                            <span class="checkbox-custom"></span>
+                            Send welcome emails to new employees
+                        </label>
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="create_user_accounts" checked>
+                            <span class="checkbox-custom"></span>
+                            Create user accounts for new employees
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="step-actions">
+                    <button type="button" class="next-btn" onclick="processFile()" disabled>
+                        <i class="fas fa-arrow-right"></i> Process File
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="step-content" id="step2" style="display: none;">
+            <div class="validation-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-check-circle"></i> Data Validation</h2>
+                    <div class="validation-summary" id="validationSummary"></div>
+                </div>
+                
+                <div class="validation-results" id="validationResults">
+                    <div class="loading-validation">
+                        <div class="loading-spinner"></div>
+                        <p>Validating employee data...</p>
+                    </div>
+                </div>
+                
+                <div class="column-mapping" id="columnMapping" style="display: none;">
+                    <h3><i class="fas fa-columns"></i> Column Mapping</h3>
+                    <div class="mapping-grid" id="mappingGrid"></div>
+                </div>
+                
+                <div class="validation-errors" id="validationErrors" style="display: none;">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Validation Errors</h3>
+                    <div class="errors-list" id="errorsList"></div>
+                </div>
+                
+                <div class="step-actions">
+                    <button type="button" class="prev-btn" onclick="goToStep(1)">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <button type="button" class="next-btn" onclick="goToStep(3)" id="proceedBtn" disabled>
+                        <i class="fas fa-arrow-right"></i> Proceed to Import
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="step-content" id="step3" style="display: none;">
+            <div class="review-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-eye"></i> Review & Import</h2>
+                    <div class="import-summary" id="importSummary"></div>
+                </div>
+                
+                <div class="preview-data" id="previewData">
+                    <div class="preview-stats">
+                        <div class="stat-card new">
+                            <div class="stat-icon">
+                                <i class="fas fa-user-plus"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="newEmployeesCount">0</div>
+                                <div class="stat-label">New Employees</div>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card update">
+                            <div class="stat-icon">
+                                <i class="fas fa-user-edit"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="updateEmployeesCount">0</div>
+                                <div class="stat-label">Updates</div>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card skip">
+                            <div class="stat-icon">
+                                <i class="fas fa-user-times"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="skipEmployeesCount">0</div>
+                                <div class="stat-label">Skipped</div>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card error">
+                            <div class="stat-icon">
+                                <i class="fas fa-exclamation-circle"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="errorEmployeesCount">0</div>
+                                <div class="stat-label">Errors</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="preview-table-container">
+                        <table class="preview-table" id="previewTable">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Department</th>
+                                    <th>Position</th>
+                                    <th>Salary</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="previewTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="import-settings">
+                    <div class="settings-group">
+                        <label for="defaultDepartment">Default Department (for missing values):</label>
+                        <select name="default_department" id="defaultDepartment">
+                            <option value="">Select Department</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}">{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="settings-group">
+                        <label for="defaultGrade">Default Grade Level:</label>
+                        <select name="default_grade" id="defaultGrade">
+                            <option value="">Select Grade</option>
+                            {% for grade in grade_levels %}
+                            <option value="{{ grade.0 }}">{{ grade.1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="settings-group">
+                        <label for="defaultStatus">Default Employment Status:</label>
+                        <select name="default_status" id="defaultStatus">
+                            <option value="ACTIVE">Active</option>
+                            <option value="PROBATION">Probation</option>
+                            <option value="INACTIVE">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="step-actions">
+                    <button type="button" class="prev-btn" onclick="goToStep(2)">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <button type="button" class="import-btn" onclick="executeImport()" id="importBtn">
+                        <i class="fas fa-upload"></i> Import Employees
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+    
+    <div class="import-progress" id="importProgress" style="display: none;">
+        <div class="progress-header">
+            <h3><i class="fas fa-cog fa-spin"></i> Importing Employees...</h3>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">0% Complete</div>
+        <div class="progress-details" id="progressDetails"></div>
+    </div>
+    
+    <div class="import-results" id="importResults" style="display: none;">
+        <div class="results-header">
+            <h3><i class="fas fa-check-circle"></i> Import Complete</h3>
+        </div>
+        <div class="results-summary" id="resultsSummary"></div>
+        <div class="results-actions">
+            <a href="{% url 'admin:employees_employeeprofile_changelist' %}" class="view-employees-btn">
+                <i class="fas fa-users"></i> View Employees
+            </a>
+            <button type="button" class="new-import-btn" onclick="resetImport()">
+                <i class="fas fa-plus"></i> New Import
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="help-modal" id="helpModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Import Help & Guidelines</h3>
+            <button type="button" class="close-btn" onclick="closeHelpModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="help-section">
+                <h4>Required Columns</h4>
+                <ul>
+                    <li><strong>first_name</strong> - Employee's first name</li>
+                    <li><strong>last_name</strong> - Employee's last name</li>
+                    <li><strong>email</strong> - Valid email address (must be unique)</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h4>Optional Columns</h4>
+                <ul>
+                    <li><strong>middle_name</strong> - Middle name</li>
+                    <li><strong>phone</strong> - Phone number</li>
+                    <li><strong>date_of_birth</strong> - Format: YYYY-MM-DD</li>
+                    <li><strong>gender</strong> - M/F/Male/Female</li>
+                    <li><strong>department</strong> - Department name</li>
+                    <li><strong>job_title</strong> - Position title</li>
+                    <li><strong>hire_date</strong> - Format: YYYY-MM-DD</li>
+                    <li><strong>basic_salary</strong> - Numeric value</li>
+                    <li><strong>employee_id</strong> - Unique identifier</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h4>Tips</h4>
+                <ul>
+                    <li>Use the provided template for best results</li>
+                    <li>Ensure email addresses are unique</li>
+                    <li>Date format should be YYYY-MM-DD</li>
+                    <li>Department names must match existing departments</li>
+                    <li>Remove empty rows before uploading</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bulk-import-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #FFFFFF;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid #E5E7EB;
+    }
+    
+    .page-header h1 {
+        color: #2B2B2B;
+        font-size: 24px;
+        font-weight: 700;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .header-actions {
+        display: flex;
+        gap: 12px;
+    }
+    
+    .back-btn, .template-btn {
+        background: linear-gradient(90deg, #6B7280 0%, #4B5563 100%);
+        color: #FFFFFF;
+        padding: 8px 16px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .template-btn {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    }
+    
+    .back-btn:hover, .template-btn:hover {
+        transform: translateY(-1px);
+        color: #FFFFFF;
+    }
+    
+    .back-btn:hover {
+        background: linear-gradient(90deg, #4B5563 0%, #374151 100%);
+    }
+    
+    .template-btn:hover {
+        background: linear-gradient(90deg, #059669 0%, #047857 100%);
+    }
+    
+    .import-steps {
+        margin-bottom: 32px;
+    }
+    
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 40px;
+        position: relative;
+    }
+    
+    .step-indicator::before {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60%;
+        height: 2px;
+        background: #E5E7EB;
+        z-index: 1;
+    }
+    
+    .step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #E5E7EB;
+        color: #6B7280;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 16px;
+        transition: all 0.3s ease;
+    }
+    
+    .step.active .step-number {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        color: #FFFFFF;
+    }
+    
+    .step.completed .step-number {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+        color: #FFFFFF;
+    }
+    
+    .step-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #6B7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .step.active .step-label {
+        color: #3D5AFE;
+    }
+    
+    .step.completed .step-label {
+        color: #10B981;
+    }
+    
+    .step-content {
+        background: #F8F9FA;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .section-header {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        color: #FFFFFF;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .section-header h2 {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .upload-section, .validation-section, .review-section {
+        padding: 24px;
+        background: #FFFFFF;
+    }
+    
+    .upload-area {
+        border: 2px dashed #D1D5DB;
+        border-radius: 8px;
+        padding: 40px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 24px;
+    }
+    
+    .upload-area:hover {
+        border-color: #3D5AFE;
+        background: linear-gradient(135deg, rgba(61, 90, 254, 0.05) 0%, rgba(213, 0, 249, 0.02) 100%);
+    }
+    
+    .upload-area.dragover {
+        border-color: #3D5AFE;
+        background: linear-gradient(135deg, rgba(61, 90, 254, 0.1) 0%, rgba(213, 0, 249, 0.05) 100%);
+    }
+    
+    .upload-content i {
+        font-size: 48px;
+        color: #D1D5DB;
+        margin-bottom: 16px;
+    }
+    
+    .upload-content h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+    }
+    
+    .upload-content p {
+        font-size: 14px;
+        color: #6B7280;
+        margin-bottom: 16px;
+    }
+    
+    .file-types {
+        font-size: 12px;
+        color: #9CA3AF;
+        font-style: italic;
+    }
+    
+    .file-info {
+        background: #F3F4F6;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .file-details {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .file-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+        color: #FFFFFF;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+    
+    .file-meta {
+        flex: 1;
+    }
+    
+    .file-name {
+        font-weight: 600;
+        color: #2B2B2B;
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+    
+    .file-size {
+        font-size: 12px;
+        color: #6B7280;
+    }
+    
+    .remove-file-btn {
+        background: #EF4444;
+        color: #FFFFFF;
+        border: none;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .remove-file-btn:hover {
+        background: #DC2626;
+        transform: scale(1.1);
+    }
+    
+    .import-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    
+    .option-group {
+        display: flex;
+        align-items: center;
+    }
+    
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #374151;
+    }
+    
+    .checkbox-label input[type="checkbox"] {
+        display: none;
+    }
+    
+    .checkbox-custom {
+        width: 18px;
+        height: 18px;
+        border: 2px solid #D1D5DB;
+        border-radius: 4px;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    .checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+        background: #3D5AFE;
+        border-color: #3D5AFE;
+    }
+    
+    .checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #FFFFFF;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    
+    .step-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        padding-top: 24px;
+        border-top: 1px solid #E5E7EB;
+    }
+    
+    .prev-btn, .next-btn, .import-btn {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .prev-btn {
+        background: #6B7280;
+        color: #FFFFFF;
+    }
+    
+    .next-btn, .import-btn {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        color: #FFFFFF;
+    }
+    
+    .next-btn:disabled, .import-btn:disabled {
+        background: #D1D5DB;
+        color: #9CA3AF;
+        cursor: not-allowed;
+    }
+    
+    .prev-btn:hover, .next-btn:hover:not(:disabled), .import-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    .validation-summary {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .loading-validation {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6B7280;
+    }
+    
+    .loading-spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3D5AFE;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 16px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .column-mapping {
+        background: #F8F9FA;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 24px;
+    }
+    
+    .column-mapping h3 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #2B2B2B;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .mapping-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
+    }
+    
+    .mapping-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 6px;
+    }
+    
+    .mapping-item label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #374151;
+        min-width: 80px;
+    }
+    
+    .mapping-item select {
+        flex: 1;
+        padding: 6px 8px;
+        border: 1px solid #D1D5DB;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+    
+    .validation-errors {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 24px;
+    }
+    
+    .validation-errors h3 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #EF4444;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .errors-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .error-item {
+        background: #FFFFFF;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 6px;
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .error-item i {
+        color: #EF4444;
+        font-size: 14px;
+    }
+    
+    .error-text {
+        flex: 1;
+        font-size: 13px;
+        color: #374151;
+    }
+    
+    .error-row {
+        font-size: 11px;
+        color: #6B7280;
+        font-weight: 600;
+    }
+
+    .import-summary {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .preview-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .stat-card {
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        color: #FFFFFF;
+    }
+    
+    .stat-card.new .stat-icon {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    }
+    
+    .stat-card.update .stat-icon {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    }
+    
+    .stat-card.skip .stat-icon {
+        background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    }
+    
+    .stat-card.error .stat-icon {
+        background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    }
+    
+    .stat-content {
+        flex: 1;
+    }
+    
+    .stat-number {
+        font-size: 20px;
+        font-weight: 800;
+        color: #2B2B2B;
+        margin-bottom: 4px;
+        font-family: monospace;
+    }
+    
+    .stat-label {
+        font-size: 12px;
+        color: #6B7280;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .preview-table-container {
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 24px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .preview-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .preview-table th {
+        background: #F3F4F6;
+        padding: 12px;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 600;
+        color: #374151;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid #E5E7EB;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .preview-table td {
+        padding: 12px;
+        border-bottom: 1px solid #F3F4F6;
+        font-size: 14px;
+    }
+    
+    .status-badge {
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #FFFFFF;
+    }
+    
+    .status-badge.new {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    }
+    
+    .status-badge.update {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    }
+    
+    .status-badge.skip {
+        background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    }
+    
+    .status-badge.error {
+        background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    }
+    
+    .import-settings {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+        padding: 20px;
+        background: #F8F9FA;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
+    }
+    
+    .settings-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .settings-group label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #374151;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .settings-group select {
+        padding: 8px 12px;
+        border: 1px solid #D1D5DB;
+        border-radius: 6px;
+        font-size: 14px;
+        background: #FFFFFF;
+        transition: all 0.3s ease;
+    }
+    
+    .settings-group select:focus {
+        outline: none;
+        border-color: #3D5AFE;
+        box-shadow: 0 0 0 3px rgba(61, 90, 254, 0.1);
+    }
+    
+    .import-progress {
+        background: #F8F9FA;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
+        padding: 24px;
+        text-align: center;
+    }
+    
+    .progress-header h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #2B2B2B;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: #E5E7EB;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 12px;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+        width: 0%;
+    }
+    
+    .progress-text {
+        font-size: 16px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+    }
+    
+    .progress-details {
+        font-size: 14px;
+        color: #6B7280;
+    }
+    
+    .import-results {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        border-radius: 8px;
+        padding: 24px;
+        text-align: center;
+    }
+    
+    .results-header h3 {
+        font-size: 20px;
+        font-weight: 600;
+        color: #10B981;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .results-summary {
+        background: #FFFFFF;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .results-actions {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+    }
+    
+    .view-employees-btn, .new-import-btn {
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+    }
+    
+    .view-employees-btn {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        color: #FFFFFF;
+    }
+    
+    .new-import-btn {
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+        color: #FFFFFF;
+    }
+    
+    .view-employees-btn:hover, .new-import-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        color: #FFFFFF;
+    }
+    
+    .help-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    
+    .help-modal.show {
+        display: flex;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    .modal-content {
+        background: #FFFFFF;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        max-width: 600px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+        color: #FFFFFF;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .modal-header h3 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    .close-btn {
+        background: none;
+        border: none;
+        color: #FFFFFF;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.3s ease;
+    }
+    
+    .close-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .help-section {
+        margin-bottom: 24px;
+    }
+    
+    .help-section h4 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #2B2B2B;
+        margin-bottom: 12px;
+    }
+    
+    .help-section ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+    
+    .help-section li {
+        color: #374151;
+        font-size: 14px;
+        margin-bottom: 6px;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @media (max-width: 768px) {
+        .bulk-import-container {
+            padding: 16px;
+        }
+        
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .header-actions {
+            width: 100%;
+            justify-content: flex-end;
+        }
+        
+        .step-indicator {
+            gap: 20px;
+        }
+        
+        .step-indicator::before {
+            width: 40%;
+        }
+        
+        .upload-area {
+            padding: 30px 15px;
+        }
+        
+        .preview-stats {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .import-settings {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        
+        .step-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .results-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .modal-content {
+            width: 95%;
+            margin: 20px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .preview-stats {
+            grid-template-columns: 1fr;
+        }
+        
+        .preview-table-container {
+            overflow-x: auto;
+        }
+        
+        .preview-table {
+            min-width: 600px;
+        }
+    }
+    </style>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initBulkImport();
+        setupFileUpload();
+        setupStepNavigation();
+    });
+    
+    function initBulkImport() {
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+    }
+    
+    function setupFileUpload() {
+        const allowedTypes = [
+            'text/csv',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ];
+        
+        window.handleFileSelect = function(file) {
+            if (!allowedTypes.includes(file.type)) {
+                showErrorMessage('Please select a valid CSV or Excel file.');
+                return;
+            }
+            
+            if (file.size > 10 * 1024 * 1024) {
+                showErrorMessage('File size must be less than 10MB.');
+                return;
+            }
+            
+            displayFileInfo(file);
+            enableProcessButton();
+        };
+    }
+    
+    function displayFileInfo(file) {
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const uploadArea = document.getElementById('uploadArea');
+        
+        fileName.textContent = file.name;
+        fileSize.textContent = formatFileSize(file.size);
+        
+        uploadArea.style.display = 'none';
+        fileInfo.style.display = 'block';
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    function removeFile() {
+        const fileInfo = document.getElementById('fileInfo');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const nextBtn = document.querySelector('.next-btn');
+        
+        fileInput.value = '';
+        fileInfo.style.display = 'none';
+        uploadArea.style.display = 'block';
+        nextBtn.disabled = true;
+    }
+    
+    function enableProcessButton() {
+        const nextBtn = document.querySelector('.next-btn');
+        nextBtn.disabled = false;
+    }
+
+    function setupStepNavigation() {
+        window.goToStep = function(stepNumber) {
+            document.querySelectorAll('.step-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            document.querySelectorAll('.step').forEach(step => {
+                step.classList.remove('active', 'completed');
+            });
+            
+            document.getElementById(`step${stepNumber}`).style.display = 'block';
+            
+            for (let i = 1; i <= 3; i++) {
+                const step = document.querySelector(`[data-step="${i}"]`);
+                if (i < stepNumber) {
+                    step.classList.add('completed');
+                } else if (i === stepNumber) {
+                    step.classList.add('active');
+                }
+            }
+        };
+    }
+    
+    function processFile() {
+        const fileInput = document.getElementById('fileInput');
+        if (!fileInput.files[0]) {
+            showErrorMessage('Please select a file to process.');
+            return;
+        }
+        
+        goToStep(2);
+        
+        const formData = new FormData();
+        formData.append('import_file', fileInput.files[0]);
+        formData.append('skip_duplicates', document.querySelector('input[name="skip_duplicates"]').checked);
+        formData.append('update_existing', document.querySelector('input[name="update_existing"]').checked);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        fetch('/admin/employees/validate-import/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayValidationResults(data);
+            } else {
+                showErrorMessage(data.message || 'Failed to process file.');
+                goToStep(1);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showErrorMessage('An error occurred while processing the file.');
+            goToStep(1);
+        });
+    }
+    
+    function displayValidationResults(data) {
+        const validationResults = document.getElementById('validationResults');
+        const validationSummary = document.getElementById('validationSummary');
+        const columnMapping = document.getElementById('columnMapping');
+        const validationErrors = document.getElementById('validationErrors');
+        const proceedBtn = document.getElementById('proceedBtn');
+        
+        validationSummary.textContent = `${data.total_rows} rows processed`;
+        
+        if (data.column_mapping_required) {
+            displayColumnMapping(data.detected_columns, data.required_columns);
+            columnMapping.style.display = 'block';
+        }
+        
+        if (data.validation_errors && data.validation_errors.length > 0) {
+            displayValidationErrors(data.validation_errors);
+            validationErrors.style.display = 'block';
+            proceedBtn.disabled = true;
+        } else {
+            proceedBtn.disabled = false;
+        }
+        
+        validationResults.innerHTML = `
+            <div class="validation-success">
+                <i class="fas fa-check-circle"></i>
+                <h3>Validation Complete</h3>
+                <div class="validation-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Rows:</span>
+                        <span class="stat-value">${data.total_rows}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Valid Rows:</span>
+                        <span class="stat-value">${data.valid_rows}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Invalid Rows:</span>
+                        <span class="stat-value">${data.invalid_rows}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        window.validationData = data;
+    }
+    
+    function displayColumnMapping(detectedColumns, requiredColumns) {
+        const mappingGrid = document.getElementById('mappingGrid');
+        
+        mappingGrid.innerHTML = requiredColumns.map(column => `
+            <div class="mapping-item">
+                <label>${column.label}:</label>
+                <select name="column_mapping_${column.field}" ${column.required ? 'required' : ''}>
+                    <option value="">Select Column</option>
+                    ${detectedColumns.map(detected => `
+                        <option value="${detected}" ${detected.toLowerCase().includes(column.field.toLowerCase()) ? 'selected' : ''}>
+                            ${detected}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+        `).join('');
+    }
+    
+    function displayValidationErrors(errors) {
+        const errorsList = document.getElementById('errorsList');
+        
+        errorsList.innerHTML = errors.map(error => `
+            <div class="error-item">
+                <i class="fas fa-exclamation-circle"></i>
+                <div class="error-text">${error.message}</div>
+                <div class="error-row">Row ${error.row}</div>
+            </div>
+        `).join('');
+    }
+    
+    function executeImport() {
+        const importBtn = document.getElementById('importBtn');
+        const originalText = importBtn.innerHTML;
+        
+        importBtn.innerHTML = '<div class="loading-spinner" style="width: 16px; height: 16px; border-width: 2px;"></div> Importing...';
+        importBtn.disabled = true;
+        
+        document.getElementById('importProgress').style.display = 'block';
+        document.getElementById('step3').style.display = 'none';
+        
+        const formData = new FormData();
+        formData.append('validation_data', JSON.stringify(window.validationData));
+        formData.append('default_department', document.getElementById('defaultDepartment').value);
+        formData.append('default_grade', document.getElementById('defaultGrade').value);
+        formData.append('default_status', document.getElementById('defaultStatus').value);
+        formData.append('send_welcome_emails', document.querySelector('input[name="send_welcome_emails"]').checked);
+        formData.append('create_user_accounts', document.querySelector('input[name="create_user_accounts"]').checked);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        const columnMappings = {};
+        document.querySelectorAll('[name^="column_mapping_"]').forEach(select => {
+            const field = select.name.replace('column_mapping_', '');
+            columnMappings[field] = select.value;
+        });
+        formData.append('column_mappings', JSON.stringify(columnMappings));
+        
+        simulateImportProgress();
+        
+        fetch('/admin/employees/execute-import/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayImportResults(data);
+            } else {
+                showErrorMessage(data.message || 'Import failed.');
+                importBtn.innerHTML = originalText;
+                importBtn.disabled = false;
+                document.getElementById('importProgress').style.display = 'none';
+                document.getElementById('step3').style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showErrorMessage('An error occurred during import.');
+            importBtn.innerHTML = originalText;
+            importBtn.disabled = false;
+            document.getElementById('importProgress').style.display = 'none';
+            document.getElementById('step3').style.display = 'block';
+        });
+    }
+    
+    function simulateImportProgress() {
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const progressDetails = document.getElementById('progressDetails');
+        
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 95) progress = 95;
+            
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = `${Math.round(progress)}% Complete`;
+            
+            if (progress < 30) {
+                progressDetails.textContent = 'Validating employee data...';
+            } else if (progress < 60) {
+                progressDetails.textContent = 'Creating user accounts...';
+            } else if (progress < 90) {
+                progressDetails.textContent = 'Importing employee profiles...';
+            } else {
+                progressDetails.textContent = 'Finalizing import...';
+            }
+            
+            if (progress >= 95) {
+                clearInterval(interval);
+            }
+        }, 200);
+        
+        window.importProgressInterval = interval;
+    }
+    
+    function displayImportResults(data) {
+        if (window.importProgressInterval) {
+            clearInterval(window.importProgressInterval);
+        }
+        
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        
+        progressFill.style.width = '100%';
+        progressText.textContent = '100% Complete';
+        
+        setTimeout(() => {
+            document.getElementById('importProgress').style.display = 'none';
+            document.getElementById('importResults').style.display = 'block';
+            
+            document.getElementById('resultsSummary').innerHTML = `
+                <div class="results-grid">
+                    <div class="result-item success">
+                        <i class="fas fa-user-plus"></i>
+                        <div class="result-content">
+                            <div class="result-number">${data.imported_count}</div>
+                            <div class="result-label">Employees Imported</div>
+                        </div>
+                    </div>
+                    <div class="result-item update">
+                        <i class="fas fa-user-edit"></i>
+                        <div class="result-content">
+                            <div class="result-number">${data.updated_count}</div>
+                            <div class="result-label">Employees Updated</div>
+                        </div>
+                    </div>
+                    <div class="result-item skip">
+                        <i class="fas fa-user-times"></i>
+                        <div class="result-content">
+                            <div class="result-number">${data.skipped_count}</div>
+                            <div class="result-label">Employees Skipped</div>
+                        </div>
+                    </div>
+                    <div class="result-item error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <div class="result-content">
+                            <div class="result-number">${data.error_count}</div>
+                            <div class="result-label">Errors</div>
+                        </div>
+                    </div>
+                </div>
+                ${data.errors && data.errors.length > 0 ? `
+                    <div class="import-errors">
+                        <h4>Import Errors:</h4>
+                        <ul>
+                            ${data.errors.map(error => `<li>${error}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+            `;
+        }, 1000);
+    }
+    
+    function resetImport() {
+        document.getElementById('importResults').style.display = 'none';
+        document.getElementById('fileInput').value = '';
+        document.getElementById('fileInfo').style.display = 'none';
+        document.getElementById('uploadArea').style.display = 'block';
+        document.querySelector('.next-btn').disabled = true;
+        
+        goToStep(1);
+        
+        window.validationData = null;
+    }
+    
+    function showErrorMessage(message) {
+        const notification = document.createElement('div');
+        notification.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            z-index: 1001;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+            animation: slideInRight 0.3s ease;
+            max-width: 300px;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 5000);
+    }
+    
+    function closeHelpModal() {
+        document.getElementById('helpModal').classList.remove('show');
+    }
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .validation-success {
+            text-align: center;
+            padding: 20px;
+            color: #10B981;
+        }
+        
+        .validation-success i {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .validation-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 20px;
+        }
+        
+        .validation-stats .stat-item {
+            background: #F8F9FA;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #E5E7EB;
+        }
+        
+        .validation-stats .stat-label {
+            font-size: 12px;
+            color: #6B7280;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .validation-stats .stat-value {
+            font-size: 18px;
+            font-weight: 800;
+            color: #2B2B2B;
+            font-family: monospace;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .result-item {
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .result-item i {
+            font-size: 24px;
+            color: #10B981;
+        }
+        
+        .result-content {
+            flex: 1;
+        }
+        
+        .result-number {
+            font-size: 20px;
+            font-weight: 800;
+            color: #2B2B2B;
+            font-family: monospace;
+        }
+        
+        .result-label {
+            font-size: 12px;
+            color: #6B7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .import-errors {
+            background: #FEF2F2;
+            border: 1px solid #FECACA;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        
+        .import-errors h4 {
+            color: #EF4444;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .import-errors ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .import-errors li {
+            color: #374151;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+    `;
+    document.head.appendChild(style);
+    </script>
+    {% endblock %}
+    
+    

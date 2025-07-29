@@ -1,0 +1,774 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_list admin_modify %}
+
+{% block extrahead %}
+    {{ block.super }}
+    {{ media }}
+    {% comment %}admin_actions_js removed - Django 4.2 compatibility{% endcomment %}
+    {% if action_form or actions_on_bottom %}
+        <script src="{% static "admin/js/actions.js" %}" defer></script>
+    {% endif %}
+    {% if cl.formset %}
+        <link rel="stylesheet" type="text/css" href="{% static "admin/css/forms.css" %}">
+        <script src="{% static 'admin/js/jquery.init.js' %}"></script>
+        {{ cl.formset.media }}
+    {% endif %}
+    {% if cl.formset or action_form %}
+        <script src="{% static 'admin/js/core.js' %}"></script>
+    {% endif %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-list{% endblock %}
+
+{% if not is_popup %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; {{ opts.verbose_name_plural|capfirst }}
+</div>
+{% endblock %}
+{% endif %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-card">
+        <div id="content-main">
+            {% block object-tools %}
+                {% if has_add_permission %}
+                <ul class="object-tools">
+                    {% block object-tools-items %}
+                        <li>
+                            <a href="{% url cl.opts|admin_urlname:'add' %}{% if is_popup %}?{{ is_popup }}{% endif %}" class="addlink">
+                                {% blocktrans with cl.opts.verbose_name as name %}Add {{ name }}{% endblocktrans %}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'admin:employees_contract_renewal_form' %}" class="renewlink">
+                                Contract Renewal
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'admin:employees_contract_expiry_report' %}" class="reportlink">
+                                Expiry Report
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'admin:employees_contract_export' %}" class="exportlink">
+                                Export Contracts
+                            </a>
+                        </li>
+                    {% endblock %}
+                </ul>
+                {% endif %}
+            {% endblock %}
+
+            <div class="contract-stats-summary">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">{{ total_contracts|default:0 }}</div>
+                        <div class="stat-label">Total Contracts</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ active_contracts|default:0 }}</div>
+                        <div class="stat-label">Active</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ expiring_soon|default:0 }}</div>
+                        <div class="stat-label">Expiring Soon</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ expired_contracts|default:0 }}</div>
+                        <div class="stat-label">Expired</div>
+                    </div>
+                </div>
+            </div>
+            
+            {% if cl.formset and cl.formset.errors %}
+                <p class="errornote">
+                {% if cl.formset.total_error_count == 1 %}{% trans "Please correct the error below." %}{% else %}{% trans "Please correct the errors below." %}{% endif %}
+                </p>
+                {{ cl.formset.non_form_errors }}
+            {% endif %}
+            
+            <div class="module filtered" id="changelist">
+                {% block search %}{% search_form cl %}{% endblock %}
+                {% block date_hierarchy %}{% date_hierarchy cl %}{% endblock %}
+
+                <form id="changelist-form" method="post" novalidate>{% csrf_token %}
+                {% if cl.formset %}
+                    <div id="changelist-formset">
+                        {{ cl.formset.management_form }}
+                        {% for form in cl.formset %}
+                            {% if form.non_field_errors %}
+                                <div class="inline-related">
+                                    {{ form.non_field_errors }}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                {% block result_list %}
+                    {% if action_form and actions_on_top and cl.show_admin_actions %}{% admin_actions %}{% endif %}
+                    
+                    <div class="results">
+                        <table id="result_list">
+                            <thead>
+                                <tr>
+                                    {% if action_form %}<th scope="col" class="action-checkbox-column"><input type="checkbox" id="action-toggle"></th>{% endif %}
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Employee</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Contract #</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Type</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Status</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Start Date</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">End Date</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Salary</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Days Remaining</div>
+                                    </th>
+                                    <th scope="col" class="sortable">
+                                        <div class="text">Contract File</div>
+                                    </th>
+                                    <th scope="col" class="nowrap">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for result in cl.result_list %}
+                                <tr class="{% cycle 'row1' 'row2' %}">
+                                    {% if action_form %}
+                                    <td class="action-checkbox">
+                                        <input type="checkbox" name="_selected_action" value="{{ result.pk }}" class="action-select">
+                                    </td>
+                                    {% endif %}
+                                    <td class="nowrap">
+                                        <div class="employee-info">
+                                            <a href="{% url 'admin:employees_employeeprofile_change' result.employee.employee_profile.pk %}" class="employee-name-link">
+                                                {{ result.employee.get_full_name }}
+                                            </a>
+                                            <div class="employee-id">{{ result.employee.employee_profile.employee_id }}</div>
+                                            <div class="employee-department">{{ result.employee.department.name|default:"No Department" }}</div>
+                                        </div>
+                                    </td>
+                                    <td class="nowrap">
+                                        <strong class="contract-number">{{ result.contract_number }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="contract-type-badge">{{ result.get_contract_type_display }}</span>
+                                    </td>
+                                    <td>
+                                        {% if result.status == 'ACTIVE' %}
+                                            <span class="status-active">{{ result.get_status_display }}</span>
+                                        {% elif result.status == 'EXPIRED' %}
+                                            <span class="status-inactive">{{ result.get_status_display }}</span>
+                                        {% elif result.status == 'TERMINATED' %}
+                                            <span class="status-terminated">{{ result.get_status_display }}</span>
+                                        {% else %}
+                                            <span class="status-suspended">{{ result.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="nowrap">
+                                        <span class="date-display">{{ result.start_date|date:"M d, Y" }}</span>
+                                    </td>
+                                    <td class="nowrap">
+                                        {% if result.end_date %}
+                                            <span class="date-display">{{ result.end_date|date:"M d, Y" }}</span>
+                                        {% else %}
+                                            <span class="permanent-contract">Permanent</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="nowrap">
+                                        <span class="salary-amount">${{ result.basic_salary|floatformat:2 }}</span>
+                                    </td>
+                                    <td class="nowrap">
+                                        {% if result.end_date %}
+                                            {% with days_left=result.days_remaining %}
+                                                {% if days_left <= 0 %}
+                                                    <span class="contract-expired">Expired</span>
+                                                {% elif days_left <= 30 %}
+                                                    <span class="contract-expiring-soon">{{ days_left }} days</span>
+                                                {% elif days_left <= 90 %}
+                                                    <span class="contract-expiring-warning">{{ days_left }} days</span>
+                                                {% else %}
+                                                    <span class="contract-active">{{ days_left }} days</span>
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% else %}
+                                            <span class="permanent-status">Permanent</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if result.contract_file %}
+                                            <div class="contract-file-info">
+                                                <a href="{{ result.contract_file.url }}" target="_blank" class="contract-file-link">
+                                                    <i class="fas fa-file-pdf"></i> View Contract
+                                                </a>
+                                                <div class="file-size">{{ result.contract_file.size|filesizeformat }}</div>
+                                            </div>
+                                        {% else %}
+                                            <span class="no-contract-file">No file</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="nowrap">
+                                        <div class="action-buttons">
+                                            <a href="{% url opts|admin_urlname:'change' result.pk|admin_urlquote %}" class="btn-edit" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url opts|admin_urlname:'history' result.pk|admin_urlquote %}" class="btn-history" title="History">
+                                                <i class="fas fa-history"></i>
+                                            </a>
+                                            {% if result.status == 'ACTIVE' and result.end_date and result.days_remaining <= 90 %}
+                                            <a href="{% url 'admin:employees_contract_renew' result.pk %}" class="btn-renew" title="Renew Contract">
+                                                <i class="fas fa-redo"></i>
+                                            </a>
+                                            {% endif %}
+                                            {% if result.contract_file %}
+                                            <a href="{{ result.contract_file.url }}" target="_blank" class="btn-download" title="Download Contract">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                            {% endif %}
+                                            {% if result.status == 'ACTIVE' %}
+                                            <a href="{% url 'admin:employees_contract_terminate' result.pk %}" class="btn-terminate" title="Terminate Contract">
+                                                <i class="fas fa-times-circle"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="10" class="no-results">
+                                        <div class="no-results-message">
+                                            <i class="fas fa-file-contract"></i>
+                                            <h3>No contracts found</h3>
+                                            <p>Try adjusting your search criteria or add a new contract.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if action_form and actions_on_bottom and cl.show_admin_actions %}{% admin_actions %}{% endif %}
+                {% endblock %}
+                
+                {% block pagination %}{% pagination cl %}{% endblock %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.contract-stats-summary {
+    margin: 20px 0 30px 0;
+    padding: 20px;
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(213, 0, 249, 0.3);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.stat-number {
+    font-size: 2.5em;
+    font-weight: 800;
+    color: #FFFFFF;
+    margin-bottom: 8px;
+    font-family: 'Inter', 'Roboto', sans-serif;
+}
+
+.stat-label {
+    color: #F1F1F1;
+    font-size: 0.9em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.employee-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.employee-name-link {
+    color: #3D5AFE;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.employee-name-link:hover {
+    color: #D500F9;
+    text-decoration: underline;
+}
+
+.employee-id {
+    font-size: 11px;
+    color: #6B7280;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.employee-department {
+    font-size: 11px;
+    color: #9CA3AF;
+    font-style: italic;
+}
+
+.contract-number {
+    color: #2B2B2B;
+    font-weight: 700;
+    font-size: 14px;
+    font-family: 'Inter', 'Roboto', monospace;
+}
+
+.contract-type-badge {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    color: #FFFFFF;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-active {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: #FFFFFF;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.status-inactive {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.status-terminated {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.status-suspended {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    color: #FFFFFF;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.date-display {
+    font-weight: 600;
+    color: #2B2B2B;
+    font-size: 13px;
+}
+
+.permanent-contract {
+    background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%);
+    color: #FFFFFF;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.salary-amount {
+    font-weight: 700;
+    color: #10B981;
+    font-size: 14px;
+}
+
+.contract-expired {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.contract-expiring-soon {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    animation: pulse 2s infinite;
+}
+
+.contract-expiring-warning {
+    background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+    color: #FFFFFF;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.contract-active {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    color: #FFFFFF;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.permanent-status {
+    background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%);
+    color: #FFFFFF;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.contract-file-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.contract-file-link {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+    padding: 6px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.contract-file-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    color: #FFFFFF;
+}
+
+.file-size {
+    font-size: 10px;
+    color: #6B7280;
+    font-weight: 500;
+}
+
+.no-contract-file {
+    color: #9CA3AF;
+    font-style: italic;
+    font-size: 12px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.btn-edit, .btn-history, .btn-renew, .btn-download, .btn-terminate {
+    background: linear-gradient(90deg, #3D5AFE 0%, #D500F9 100%);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 8px;
+    text-decoration: none;
+    font-size: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(213, 0, 249, 0.3);
+}
+
+.btn-edit:hover, .btn-history:hover, .btn-renew:hover, .btn-download:hover, .btn-terminate:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(213, 0, 249, 0.4);
+    color: #FFFFFF;
+}
+
+.btn-renew {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+
+.btn-renew:hover {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-download {
+    background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%);
+    box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+}
+
+.btn-download:hover {
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+.btn-terminate {
+    background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.btn-terminate:hover {
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.no-results {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.no-results-message i {
+    font-size: 48px;
+    color: #D1D5DB;
+    margin-bottom: 16px;
+}
+
+.no-results-message h3 {
+    color: #374151;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.no-results-message p {
+    color: #6B7280;
+    font-size: 14px;
+}
+
+.renewlink {
+    background: linear-gradient(90deg, #10B981 0%, #059669 100%) !important;
+    color: #FFFFFF !important;
+}
+
+.renewlink:hover {
+    background: linear-gradient(90deg, #059669 0%, #047857 100%) !important;
+    color: #FFFFFF !important;
+}
+
+.reportlink {
+    background: linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%) !important;
+    color: #FFFFFF !important;
+}
+
+.reportlink:hover {
+    background: linear-gradient(90deg, #7C3AED 0%, #6D28D9 100%) !important;
+    color: #FFFFFF !important;
+}
+
+.exportlink {
+    background: #2B2B2B !important;
+    color: #FFFFFF !important;
+}
+
+.exportlink:hover {
+    background: #1E1E1E !important;
+    color: #FFFFFF !important;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    
+    .stat-number {
+        font-size: 2em;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .results table {
+        font-size: 12px;
+    }
+    
+    .results table th,
+    .results table td {
+        padding: 8px 4px;
+    }
+    
+    .employee-info {
+        gap: 2px;
+    }
+    
+    .contract-file-info {
+        gap: 2px;
+    }
+}
+
+@media (max-width: 480px) {
+    .contract-stats-summary {
+        padding: 16px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .stat-card {
+        padding: 16px;
+    }
+    
+    .results table {
+        font-size: 11px;
+    }
+    
+    .action-buttons {
+        flex-wrap: wrap;
+        gap: 3px;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const actionToggle = document.getElementById('action-toggle');
+    const actionSelects = document.querySelectorAll('.action-select');
+    
+    if (actionToggle) {
+        actionToggle.addEventListener('change', function() {
+            actionSelects.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+    }
+    
+    actionSelects.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const checkedCount = document.querySelectorAll('.action-select:checked').length;
+            actionToggle.checked = checkedCount === actionSelects.length;
+            actionToggle.indeterminate = checkedCount > 0 && checkedCount < actionSelects.length;
+        });
+    });
+    
+    const renewButtons = document.querySelectorAll('.btn-renew');
+    renewButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const confirmRenew = confirm('Are you sure you want to renew this contract?');
+            if (confirmRenew) {
+                window.location.href = this.href;
+            }
+        });
+    });
+    
+    const terminateButtons = document.querySelectorAll('.btn-terminate');
+    terminateButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const confirmTerminate = confirm('Are you sure you want to terminate this contract? This action cannot be undone.');
+            if (confirmTerminate) {
+                window.location.href = this.href;
+            }
+        });
+    });
+    
+    const contractFileLinks = document.querySelectorAll('.contract-file-link');
+    contractFileLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            const loadingIndicator = document.createElement('div');
+            loadingIndicator.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading contract...';
+            loadingIndicator.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 8px; z-index: 9999;';
+            document.body.appendChild(loadingIndicator);
+            
+            setTimeout(() => {
+                document.body.removeChild(loadingIndicator);
+            }, 2000);
+        });
+    });
+    
+    const expiringContracts = document.querySelectorAll('.contract-expiring-soon');
+    if (expiringContracts.length > 0) {
+        const notification = document.createElement('div');
+        notification.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${expiringContracts.length} contract(s) expiring within 30 days!`;
+        notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%); color: white; padding: 12px 16px; border-radius: 8px; z-index: 1000; font-weight: 600; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);';
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 300);
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}
+

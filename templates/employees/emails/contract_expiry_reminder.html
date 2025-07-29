@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contract Expiry Reminder</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <div style="background: linear-gradient(90deg, #dc3545 0%, #c82333 100%); padding: 30px 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 600;">
+                Contract Expiry Notice
+            </h1>
+            <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">
+                Important: Your employment contract is expiring soon
+            </p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 30px 20px;">
+            <h2 style="color: #333; margin: 0 0 20px 0; font-size: 22px;">
+                Dear {{ contract.employee.get_full_name }},
+            </h2>
+            
+            <p style="color: #555; line-height: 1.6; margin: 0 0 20px 0; font-size: 16px;">
+                This is an important reminder that your employment contract with {{ company_name }} 
+                {% if urgency_level == 'critical' %}
+                <strong style="color: #dc3545;">expires in {{ days_remaining }} day{{ days_remaining|pluralize }}</strong>.
+                {% elif urgency_level == 'urgent' %}
+                <strong style="color: #fd7e14;">expires in {{ days_remaining }} days</strong>.
+                {% else %}
+                expires on {{ contract.end_date|date:"F d, Y" }} ({{ days_remaining }} days remaining).
+                {% endif %}
+            </p>
+
+            <!-- Contract Details -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">Current Contract Details</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600; width: 40%;">Contract Number:</td>
+                        <td style="padding: 8px 0; color: #333;">{{ contract.contract_number }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Contract Type:</td>
+                        <td style="padding: 8px 0; color: #333;">{{ contract.get_contract_type_display }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Start Date:</td>
+                        <td style="padding: 8px 0; color: #333;">{{ contract.start_date|date:"F d, Y" }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">End Date:</td>
+                        <td style="padding: 8px 0; color: #dc3545; font-weight: 600;">{{ contract.end_date|date:"F d, Y" }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Position:</td>
+                        <td style="padding: 8px 0; color: #333;">{{ contract.job_title }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Department:</td>
+                        <td style="padding: 8px 0; color: #333;">{{ contract.department.name }}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Urgency Alert -->
+            {% if urgency_level == 'critical' %}
+            <div style="background: #f8d7da; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc3545;">
+                <h3 style="color: #721c24; margin: 0 0 15px 0; font-size: 18px;">⚠️ Immediate Action Required</h3>
+                <p style="color: #721c24; line-height: 1.6; margin: 0; font-weight: 600;">
+                    Your contract expires in {{ days_remaining }} day{{ days_remaining|pluralize }}! 
+                    Please contact HR immediately to discuss your employment status and next steps.
+                </p>
+            </div>
+            {% elif urgency_level == 'urgent' %}
+            <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                <h3 style="color: #856404; margin: 0 0 15px 0; font-size: 18px;">🔔 Action Needed Soon</h3>
+                <p style="color: #856404; line-height: 1.6; margin: 0;">
+                    Your contract expires in {{ days_remaining }} days. Please schedule a meeting with HR 
+                    to discuss renewal or transition arrangements.
+                </p>
+            </div>
+            {% else %}
+            <div style="background: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #007cba;">
+                <h3 style="color: #007cba; margin: 0 0 15px 0; font-size: 18px;">📅 Upcoming Expiry</h3>
+                <p style="color: #333; line-height: 1.6; margin: 0;">
+                    Your contract will expire in {{ days_remaining }} days. This is an early reminder 
+                    to help you plan ahead and discuss your future with the company.
+                </p>
+            </div>
+            {% endif %}
+
+            <!-- Renewal Status -->
+            {% if renewal_status %}
+            <div style="background: {% if renewal_status == 'approved' %}#d4edda{% elif renewal_status == 'pending' %}#fff3cd{% else %}#f8d7da{% endif %}; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid {% if renewal_status == 'approved' %}#28a745{% elif renewal_status == 'pending' %}#ffc107{% else %}#dc3545{% endif %};">
+                <h3 style="color: {% if renewal_status == 'approved' %}#155724{% elif renewal_status == 'pending' %}#856404{% else %}#721c24{% endif %}; margin: 0 0 15px 0; font-size: 18px;">
+                    Renewal Status: {{ renewal_status|title }}
+                </h3>
+                {% if renewal_status == 'approved' %}
+                <p style="color: #155724; line-height: 1.6; margin: 0;">
+                    ✅ Great news! Your contract renewal has been approved. You will receive the new contract details shortly.
+                </p>
+                {% elif renewal_status == 'pending' %}
+                <p style="color: #856404; line-height: 1.6; margin: 0;">
+                    ⏳ Your contract renewal is currently under review. We will update you on the decision soon.
+                </p>
+                {% elif renewal_status == 'declined' %}
+                <p style="color: #721c24; line-height: 1.6; margin: 0;">
+                    ❌ Your contract will not be renewed. Please contact HR to discuss transition arrangements.
+                </p>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Next Steps -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">What You Need to Do</h3>
+                <ul style="color: #333; line-height: 1.6; margin: 0; padding-left: 20px;">
+                    {% if urgency_level == 'critical' %}
+                    <li style="margin-bottom: 8px; font-weight: 600; color: #dc3545;">Contact HR immediately - today if possible</li>
+                    <li style="margin-bottom: 8px;">Discuss your employment status and options</li>
+                    <li style="margin-bottom: 8px;">Complete any pending handover tasks</li>
+                    <li style="margin-bottom: 8px;">Prepare for potential transition arrangements</li>
+                    {% elif urgency_level == 'urgent' %}
+                    <li style="margin-bottom: 8px; font-weight: 600;">Schedule a meeting with HR within the next few days</li>
+                    <li style="margin-bottom: 8px;">Discuss contract renewal possibilities</li>
+                    <li style="margin-bottom: 8px;">Review your current performance and objectives</li>
+                    <li style="margin-bottom: 8px;">Prepare questions about your future with the company</li>
+                    {% else %}
+                    <li style="margin-bottom: 8px;">Schedule a meeting with HR to discuss your contract</li>
+                    <li style="margin-bottom: 8px;">Review your performance and achievements</li>
+                    <li style="margin-bottom: 8px;">Consider your career goals and preferences</li>
+                    <li style="margin-bottom: 8px;">Prepare for renewal discussions or transition planning</li>
+                    {% endif %}
+                </ul>
+            </div>
+
+            <!-- Important Reminders -->
+            <div style="background: #e2e3e5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6c757d;">
+                <h3 style="color: #495057; margin: 0 0 15px 0; font-size: 18px;">Important Reminders</h3>
+                <ul style="color: #495057; line-height: 1.6; margin: 0; padding-left: 20px;">
+                    <li style="margin-bottom: 8px;">Your employment will end on {{ contract.end_date|date:"F d, Y" }} unless renewed</li>
+                    <li style="margin-bottom: 8px;">Notice period requirements: {{ contract.notice_period|default:"30" }} days</li>
+                    <li style="margin-bottom: 8px;">Complete any outstanding projects or handovers</li>
+                    <li style="margin-bottom: 8px;">Return company property if contract is not renewed</li>
+                    <li style="margin-bottom: 8px;">Discuss final pay, benefits, and clearance procedures</li>
+                </ul>
+            </div>
+
+            <!-- Contact Information -->
+            <div style="margin: 30px 0 20px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">Contact Information</h3>
+                <div style="background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;">
+                    <p style="color: #555; margin: 0 0 10px 0; font-weight: 600;">For immediate assistance, contact:</p>
+                    <ul style="color: #555; line-height: 1.6; margin: 0; padding-left: 20px;">
+                        <li><strong>HR Department:</strong> {{ hr_email|default:"hr@company.com" }}</li>
+                        <li><strong>HR Phone:</strong> {{ hr_phone|default:"Contact HR for phone number" }}</li>
+                        {% if contract.employee.manager %}
+                        <li><strong>Your Manager:</strong> {{ contract.employee.manager.get_full_name }} ({{ contract.employee.manager.email }})</li>
+                        {% endif %}
+                        <li><strong>Office Hours:</strong> {{ office_hours|default:"Monday - Friday, 9:00 AM - 5:00 PM" }}</li>
+                    </ul>
+                </div>
+            </div>
+
+            <p style="color: #555; line-height: 1.6; margin: 20px 0 0 0; font-size: 16px;">
+                Thank you for your service to {{ company_name }}. We appreciate your contributions and 
+                look forward to discussing your future with us.
+            </p>
+
+            <p style="color: #555; margin: 20px 0 0 0; font-size: 16px;">
+                Best regards,<br>
+                <strong>{{ company_name }} HR Department</strong>
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #dee2e6;">
+            <p style="color: #666; margin: 0; font-size: 14px;">
+                {{ company_name }} | Human Resources Department
+            </p>
+            <p style="color: #666; margin: 5px 0 0 0; font-size: 12px;">
+                This is an automated reminder. Please respond promptly to ensure continuity.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
