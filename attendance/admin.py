@@ -45,6 +45,19 @@ from .utils import (
     ReportGenerator,
     DeviceDataProcessor,
 )
+from .permissions import (
+    check_attendance_permission,
+    get_accessible_employees,
+    get_accessible_departments,
+    AttendancePermissionMixin,
+    DevicePermission,
+    ReportPermission,
+    SystemPermission,
+    EmployeeAttendancePermission,
+    LeavePermission,
+    BulkOperationPermission,
+    TimeBasedPermission
+)
 from accounts.models import CustomUser
 from employees.models import EmployeeProfile
 
@@ -850,6 +863,38 @@ class AttendanceAdmin(admin.ModelAdmin):
 
         CacheManager.invalidate_employee_cache(obj.employee.id)
 
+    def has_view_permission(self, request, obj=None):
+        return check_attendance_permission(request.user, 'view_attendance')
+    
+    def has_change_permission(self, request, obj=None):
+        if obj:
+            return EmployeeAttendancePermission.can_edit_employee_attendance(request.user, obj.employee)
+        return check_attendance_permission(request.user, 'edit_employee_attendance')
+    
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser or (request.user.role and request.user.role.name == 'HR_ADMIN')
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        accessible_employees = get_accessible_employees(request.user)
+        return qs.filter(employee__in=accessible_employees)
+    
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        
+        if not ReportPermission.can_export_attendance_data(request.user):
+            if 'export_attendance_excel' in actions:
+                del actions['export_attendance_excel']
+        
+        if not DevicePermission.can_sync_device_data(request.user):
+            if 'sync_with_devices' in actions:
+                del actions['sync_with_devices']
+        
+        if not BulkOperationPermission.can_bulk_update_attendance(request.user):
+            if 'calculate_monthly_summaries' in actions:
+                del actions['calculate_monthly_summaries']
+        
+        return actions
 
 @admin.register(AttendanceLog)
 class AttendanceLogAdmin(admin.ModelAdmin):
@@ -976,6 +1021,19 @@ class AttendanceLogAdmin(admin.ModelAdmin):
 
     status_indicator.short_description = "⚙️ Status"
 
+    def has_view_permission(self, request, obj=None):
+        return DevicePermission.can_view_device_logs(request.user)
+    
+    def has_change_permission(self, request, obj=None):
+        return DevicePermission.can_manage_devices(request.user)
+    
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        accessible_employees = get_accessible_employees(request.user)
+        return qs.filter(employee_code__in=[emp.employee_code for emp in accessible_employees if hasattr(emp, 'employee_code')])
 
 @admin.register(MonthlyAttendanceSummary)
 class MonthlyAttendanceSummaryAdmin(admin.ModelAdmin):
@@ -1147,6 +1205,21 @@ class MonthlyAttendanceSummaryAdmin(admin.ModelAdmin):
 
     efficiency_display.short_description = "⭐ Efficiency"
 
+    def has_view_permission(self, request, obj=None):
+        return check_attendance_permission(request.user, "view_attendance")
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser or (
+            request.user.role and request.user.role.name in ["HR_ADMIN", "HR_MANAGER"]
+        )
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        accessible_employees = get_accessible_employees(request.user)
+        return qs.filter(employee__in=accessible_employees)
 
 @admin.register(AttendanceDevice)
 class AttendanceDeviceAdmin(admin.ModelAdmin):
@@ -1300,6 +1373,18 @@ class AttendanceDeviceAdmin(admin.ModelAdmin):
         )
 
     device_actions.short_description = "⚙️ Actions"
+    
+    def has_view_permission(self, request, obj=None):
+        return DevicePermission.can_manage_devices(request.user) or DevicePermission.can_view_device_logs(request.user)
+    
+    def has_change_permission(self, request, obj=None):
+        return DevicePermission.can_manage_devices(request.user)
+    
+    def has_add_permission(self, request):
+        return DevicePermission.can_manage_devices(request.user)
+    
+    def has_delete_permission(self, request, obj=None):
+        return DevicePermission.can_manage_devices(request.user)
 
 @admin.register(AttendanceCorrection)
 class AttendanceCorrectionAdmin(admin.ModelAdmin):
@@ -1308,7 +1393,7 @@ class AttendanceCorrectionAdmin(admin.ModelAdmin):
     search_fields = ['attendance__employee__employee_code', 'attendance__employee__first_name', 'reason']
     list_per_page = 25
     ordering = ['-requested_at']
-    
+
     fieldsets = (
         (
             "📝 Correction Information",
@@ -1327,9 +1412,9 @@ class AttendanceCorrectionAdmin(admin.ModelAdmin):
             {"fields": ("requested_by", "requested_at"), "classes": ("collapse",)},
         ),
     )
-    
+
     readonly_fields = ["original_data", "requested_at", "approved_at"]
-    
+
     def correction_info(self, obj):
         return format_html(
             "<div>"
@@ -1342,7 +1427,7 @@ class AttendanceCorrectionAdmin(admin.ModelAdmin):
             obj.requested_by.get_full_name(),
         )
     correction_info.short_description = "📝 Correction"
-    
+
     def correction_type_badge(self, obj):
         type_config = {
             "TIME_ADJUSTMENT": {"color": "#3498DB", "icon": "⏰"},
@@ -1351,9 +1436,9 @@ class AttendanceCorrectionAdmin(admin.ModelAdmin):
             "DEVICE_ERROR": {"color": "#E74C3C", "icon": "🔧"},
             "LEAVE_ADJUSTMENT": {"color": "#1ABC9C", "icon": "🏖️"},
         }
-        
+
         config = type_config.get(obj.correction_type, {"color": "#6C757D", "icon": "❓"})
-        
+
         return format_html(
             '<span style="color: {}; font-weight: bold;">{} {}</span>',
             config["color"],
@@ -1361,7 +1446,7 @@ class AttendanceCorrectionAdmin(admin.ModelAdmin):
             obj.get_correction_type_display(),
         )
     correction_type_badge.short_description = "🔄 Type"
-    
+
     def attendance_details(self, obj):
         attendance = obj.attendance
         return format_html(
@@ -1376,16 +1461,16 @@ class AttendanceCorrectionAdmin(admin.ModelAdmin):
             attendance.last_out_time.strftime("%H:%M") if attendance.last_out_time else "--:--",
         )
     attendance_details.short_description = "📊 Attendance"
-    
+
     def status_badge(self, obj):
         status_config = {
             "PENDING": {"color": "#F39C12", "icon": "⏳", "bg": "#FFF3CD"},
             "APPROVED": {"color": "#27AE60", "icon": "✅", "bg": "#D5EDDA"},
             "REJECTED": {"color": "#E74C3C", "icon": "❌", "bg": "#F8D7DA"},
         }
-        
+
         config = status_config.get(obj.status, {"color": "#6C757D", "icon": "❓", "bg": "#E2E3E5"})
-        
+
         return format_html(
             '<span style="background-color: {}; color: {}; padding: 4px 8px; '
             "border-radius: 12px; font-size: 12px; font-weight: bold; "
@@ -1397,7 +1482,7 @@ class AttendanceCorrectionAdmin(admin.ModelAdmin):
             obj.status.title(),
         )
     status_badge.short_description = "📊 Status"
-    
+
     def approval_info(self, obj):
         if obj.approved_by:
             return format_html(
@@ -1414,6 +1499,26 @@ class AttendanceCorrectionAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #6C757D;">⏳ Pending</span>')
     approval_info.short_description = "✅ Approved By"
+
+    def has_view_permission(self, request, obj=None):
+        return check_attendance_permission(request.user, "view_attendance")
+
+    def has_change_permission(self, request, obj=None):
+        if obj:
+            return EmployeeAttendancePermission.can_approve_attendance_correction(
+                request.user, obj.attendance.employee
+            )
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser or (
+            request.user.role and request.user.role.name == "HR_ADMIN"
+        )
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        accessible_employees = get_accessible_employees(request.user)
+        return qs.filter(attendance__employee__in=accessible_employees)
 
 @admin.register(AttendanceReport)
 class AttendanceReportAdmin(admin.ModelAdmin):
@@ -1528,7 +1633,18 @@ class AttendanceReportAdmin(admin.ModelAdmin):
         )
 
     generated_info.short_description = "🕐 Generated"
-
+    
+    def has_view_permission(self, request, obj=None):
+        return ReportPermission.can_generate_reports(request.user)
+    
+    def has_change_permission(self, request, obj=None):
+        return ReportPermission.can_generate_reports(request.user)
+    
+    def has_add_permission(self, request):
+        return ReportPermission.can_generate_reports(request.user)
+    
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser or (request.user.role and request.user.role.name == 'HR_ADMIN')
 
 @admin.register(Holiday)
 class HolidayAdmin(admin.ModelAdmin):
@@ -1675,6 +1791,17 @@ class HolidayAdmin(admin.ModelAdmin):
 
     holiday_status.short_description = "🏷️ Status"
 
+    def has_view_permission(self, request, obj=None):
+        return True
+    
+    def has_change_permission(self, request, obj=None):
+        return SystemPermission.can_manage_holidays(request.user)
+    
+    def has_add_permission(self, request):
+        return SystemPermission.can_manage_holidays(request.user)
+    
+    def has_delete_permission(self, request, obj=None):
+        return SystemPermission.can_manage_holidays(request.user)
 
 @admin.register(AttendanceSettings)
 class AttendanceSettingsAdmin(admin.ModelAdmin):
@@ -1783,7 +1910,18 @@ class AttendanceSettingsAdmin(admin.ModelAdmin):
 
     last_updated.short_description = "🕐 Updated"
 
-
+    
+    def has_view_permission(self, request, obj=None):
+        return SystemPermission.can_access_attendance_settings(request.user)
+    
+    def has_change_permission(self, request, obj=None):
+        return SystemPermission.can_access_attendance_settings(request.user)
+    
+    def has_add_permission(self, request):
+        return SystemPermission.can_access_attendance_settings(request.user)
+    
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
 @admin.register(EmployeeShift)
 class EmployeeShiftAdmin(admin.ModelAdmin):
     list_display = [
@@ -1925,7 +2063,23 @@ class EmployeeShiftAdmin(admin.ModelAdmin):
 
     assigned_by_info.short_description = "👤 Assigned By"
 
-
+    
+    def has_view_permission(self, request, obj=None):
+        return SystemPermission.can_manage_shifts(request.user)
+    
+    def has_change_permission(self, request, obj=None):
+        return SystemPermission.can_manage_shifts(request.user)
+    
+    def has_add_permission(self, request):
+        return SystemPermission.can_manage_shifts(request.user)
+    
+    def has_delete_permission(self, request, obj=None):
+        return SystemPermission.can_manage_shifts(request.user)
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        accessible_employees = get_accessible_employees(request.user)
+        return qs.filter(employee__in=accessible_employees)
 @admin.register(LeaveType)
 class LeaveTypeAdmin(admin.ModelAdmin):
     list_display = [
@@ -2390,7 +2544,22 @@ class LeaveRequestAdmin(admin.ModelAdmin):
 
     approval_info.short_description = "✅ Approved By"
 
+    def has_view_permission(self, request, obj=None):
+        return check_attendance_permission(request.user, 'view_attendance')
+    
+    def has_change_permission(self, request, obj=None):
+        if obj:
+            return LeavePermission.can_approve_leave(request.user, obj)
+        return True
+    
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser or (request.user.role and request.user.role.name == 'HR_ADMIN')
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        accessible_employees = get_accessible_employees(request.user)
+        return qs.filter(employee__in=accessible_employees)
 
-admin.site.site_header = "HR Payroll System - Attendance Management"
+admin.site.site_header = "Attendance Management"
 admin.site.site_title = "Attendance Admin"
-admin.site.index_title = "Attendance Management Dashboard"
+admin.site.index_title = "Attendance Dashboard"
