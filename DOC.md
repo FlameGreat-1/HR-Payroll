@@ -559,16 +559,34 @@ attendance/
 │       ├── process_logs.py (CREATE)
 │       ├── import_excel.py (CREATE)
 │       └── generate_monthly_summary.py (CREATE)
-└── templates/
-    └── admin/
-        └── attendance/
-            ├── attendance_bulk_import.html (CREATE)
-            ├── monthly_summary.html (CREATE)
-            └── device_sync_status.html (CREATE)
 
 
 
 
+attendance/
+├── admin.py                 # Main admin configuration
+├── admin_config/           # Admin customization modules
+│   ├── __init__.py
+│   ├── attendance_admin.py  # Attendance model admin
+│   ├── device_admin.py      # Device management admin
+│   ├── leave_admin.py       # Leave management admin
+│   ├── report_admin.py      # Reports admin
+│   └── dashboard_admin.py   # Dashboard customizations
+├── static/admin/           # Custom admin assets
+│   ├── css/
+│   │   ├── custom_admin.css # Main styling
+│   │   ├── attendance.css   # Attendance-specific styles
+│   │   └── responsive.css   # Mobile responsiveness
+│   ├── js/
+│   │   ├── admin_custom.js  # Custom JavaScript
+│   │   ├── real_time.js     # Real-time updates
+│   │   └── charts.js        # Dashboard charts
+│   └── img/
+│       ├── icons/           # Custom icons
+│       └── logos/           # Company branding
+└── templates/admin/        # Optional template overrides
+    ├── base_site.html      # Custom header/branding
+    └── index.html          # Custom dashboard
 
 
 **📋 HIERARCHICAL IMPLEMENTATION ORDER**
