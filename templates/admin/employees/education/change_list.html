@@ -153,10 +153,15 @@
                                     {% endif %}
                                     <td class="nowrap">
                                         <div class="employee-info">
-                                            <a href="{% url 'admin:employees_employeeprofile_change' result.employee.employee_profile.pk %}" class="employee-name-link">
-                                                {{ result.employee.get_full_name }}
-                                            </a>
-                                            <div class="employee-id">{{ result.employee.employee_profile.employee_id }}</div>
+                                            {% if result.employee.employee_profile and result.employee.employee_profile.pk %}
+                                                <a href="{% url 'admin:employees_employeeprofile_change' result.employee.employee_profile.pk %}" class="employee-name-link">
+                                                    {{ result.employee.get_full_name }}
+                                                </a>
+                                                <div class="employee-id">{{ result.employee.employee_profile.employee_id|default:"No ID" }}</div>
+                                            {% else %}
+                                                <span class="employee-name-no-profile">{{ result.employee.get_full_name }} (No Profile)</span>
+                                                <div class="employee-id">No Profile</div>
+                                            {% endif %}
                                             <div class="employee-department">{{ result.employee.department.name|default:"No Department" }}</div>
                                         </div>
                                     </td>

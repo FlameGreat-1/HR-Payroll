@@ -22,10 +22,38 @@ from .models import (
     SystemConfiguration,
 )
 from .forms import EmployeeRegistrationForm, EmployeeUpdateForm
+from attendance.models import (
+    Attendance,
+    AttendanceDevice,
+    Shift,
+    EmployeeShift,
+    LeaveRequest,
+    LeaveBalance,
+    LeaveType,
+    Holiday,
+    MonthlyAttendanceSummary,
+    AttendanceCorrection,
+    AttendanceReport,
+    AttendanceLog,
+)
+from attendance.admin import (
+    AttendanceAdmin,
+    AttendanceDeviceAdmin,
+    ShiftAdmin,
+    EmployeeShiftAdmin,
+    LeaveRequestAdmin,
+    LeaveBalanceAdmin,
+    LeaveTypeAdmin,
+    HolidayAdmin,
+    MonthlyAttendanceSummaryAdmin,
+    AttendanceCorrectionAdmin,
+    AttendanceReportAdmin,
+    AttendanceLogAdmin,
+)
+
 from .admin_site import hr_admin_site  
 
 User = get_user_model()
-
 
 class BaseAdminMixin:
     def get_queryset(self, request):
@@ -42,7 +70,6 @@ class BaseAdminMixin:
                 self.message_user(request, success_message.format(count=count))
         except Exception as e:
             self.message_user(request, f"Action failed: {str(e)}", level=messages.ERROR)
-
 
 class CustomUserAdmin(BaseAdminMixin, BaseUserAdmin):
     add_form = EmployeeRegistrationForm
@@ -451,7 +478,6 @@ class RoleAdmin(BaseAdminMixin, admin.ModelAdmin):
 
     deactivate_roles.short_description = "Deactivate selected roles"
 
-
 class UserSessionAdmin(BaseAdminMixin, admin.ModelAdmin):
     list_display = [
         "user",
@@ -618,15 +644,13 @@ class PasswordResetTokenAdmin(BaseAdminMixin, admin.ModelAdmin):
         )
 
     delete_expired_tokens.short_description = "Delete expired tokens"
-
-
 class AuditLogAdmin(BaseAdminMixin, admin.ModelAdmin):
     list_display = [
         "timestamp",
         "user",
         "get_employee_code",
         "action",
-        "description_preview",
+        "object_repr_preview",
         "ip_address",
     ]
 
@@ -636,7 +660,7 @@ class AuditLogAdmin(BaseAdminMixin, admin.ModelAdmin):
         "user__employee_code",
         "user__first_name",
         "user__last_name",
-        "description",
+        "object_repr",
         "ip_address",
         "action",
     ]
@@ -646,14 +670,14 @@ class AuditLogAdmin(BaseAdminMixin, admin.ModelAdmin):
     readonly_fields = [
         "user",
         "action",
-        "description",
+        "object_repr",
         "ip_address",
         "user_agent",
         "timestamp",
-        "additional_data",
-        "module",
+        "changes",
+        "model_name",
         "object_id",
-        "severity",
+        "session_key",
     ]
 
     fieldsets = (
@@ -663,16 +687,18 @@ class AuditLogAdmin(BaseAdminMixin, admin.ModelAdmin):
                 "fields": (
                     "user",
                     "action",
-                    "description",
-                    "module",
+                    "object_repr",
+                    "model_name",
                     "object_id",
-                    "severity",
                 )
             },
         ),
-        ("Request Information", {"fields": ("ip_address", "user_agent")}),
+        (
+            "Request Information",
+            {"fields": ("ip_address", "user_agent", "session_key")},
+        ),
         ("Timing", {"fields": ("timestamp",)}),
-        ("Additional Data", {"fields": ("additional_data",), "classes": ("collapse",)}),
+        ("Additional Data", {"fields": ("changes",), "classes": ("collapse",)}),
     )
 
     actions = ["export_selected_logs", "delete_old_logs"]
@@ -686,12 +712,12 @@ class AuditLogAdmin(BaseAdminMixin, admin.ModelAdmin):
     get_employee_code.short_description = "Employee Code"
     get_employee_code.admin_order_field = "user__employee_code"
 
-    def description_preview(self, obj):
-        if len(obj.description) > 50:
-            return f"{obj.description[:50]}..."
-        return obj.description
+    def object_repr_preview(self, obj):
+        if obj.object_repr and len(obj.object_repr) > 50:
+            return f"{obj.object_repr[:50]}..."
+        return obj.object_repr or ""
 
-    description_preview.short_description = "Description"
+    object_repr_preview.short_description = "Object"
 
     def has_add_permission(self, request):
         return False
@@ -718,8 +744,6 @@ class AuditLogAdmin(BaseAdminMixin, admin.ModelAdmin):
         self.safe_bulk_action(request, queryset, action, "{count} old logs deleted.")
 
     delete_old_logs.short_description = "Delete logs older than 1 year"
-
-
 class SystemConfigurationAdmin(BaseAdminMixin, admin.ModelAdmin):
     list_display = [
         "key",
@@ -812,8 +836,21 @@ hr_admin_site.register(PasswordResetToken, PasswordResetTokenAdmin)
 hr_admin_site.register(AuditLog, AuditLogAdmin)
 hr_admin_site.register(SystemConfiguration, SystemConfigurationAdmin)
 
-# EMPLOYEE REGISTRATIONS 
+# EMPLOYEE REGISTRATIONS
 hr_admin_site.register(EmployeeProfile, EmployeeProfileAdmin)
 hr_admin_site.register(Education, EducationAdmin)
 hr_admin_site.register(Contract, ContractAdmin)
 
+# ATTENDANCE REGISTRATIONS
+hr_admin_site.register(Attendance, AttendanceAdmin)
+hr_admin_site.register(AttendanceDevice, AttendanceDeviceAdmin)
+hr_admin_site.register(Shift, ShiftAdmin)
+hr_admin_site.register(EmployeeShift, EmployeeShiftAdmin)
+hr_admin_site.register(LeaveRequest, LeaveRequestAdmin)
+hr_admin_site.register(LeaveBalance, LeaveBalanceAdmin)
+hr_admin_site.register(LeaveType, LeaveTypeAdmin)
+hr_admin_site.register(Holiday, HolidayAdmin)
+hr_admin_site.register(MonthlyAttendanceSummary, MonthlyAttendanceSummaryAdmin)
+hr_admin_site.register(AttendanceCorrection, AttendanceCorrectionAdmin)
+hr_admin_site.register(AttendanceReport, AttendanceReportAdmin)
+hr_admin_site.register(AttendanceLog, AttendanceLogAdmin)

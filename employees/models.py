@@ -2,15 +2,13 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.core.validators import RegexValidator, MinValueValidator, MaxValueValidator
-from accounts.models import CustomUser, ActiveManager
+from accounts.models import CustomUser, ActiveManager, SystemConfiguration
 from decimal import Decimal
 import uuid
-from datetime import date
+from datetime import date, time
 
 
 class EmployeeProfile(models.Model):
-    """Extended employee information beyond basic user data"""
-
     EMPLOYMENT_STATUS_CHOICES = [
         ("PROBATION", "Probation"),
         ("CONFIRMED", "Confirmed"),
@@ -41,13 +39,6 @@ class EmployeeProfile(models.Model):
         CustomUser, on_delete=models.CASCADE, related_name="employee_profile"
     )
 
-    # Professional Details
-    employee_id = models.CharField(
-        max_length=20,
-        unique=True,
-        blank=True,
-        help_text="Unique employee identifier (different from employee_code)",
-    )
     employment_status = models.CharField(
         max_length=20, choices=EMPLOYMENT_STATUS_CHOICES, default="PROBATION"
     )
@@ -58,7 +49,6 @@ class EmployeeProfile(models.Model):
     probation_end_date = models.DateField(null=True, blank=True)
     confirmation_date = models.DateField(null=True, blank=True)
 
-    # Financial Details
     bank_name = models.CharField(max_length=100, blank=True, null=True)
     bank_account_number = models.CharField(
         max_length=50,
@@ -71,27 +61,14 @@ class EmployeeProfile(models.Model):
         max_length=20, blank=True, null=True, unique=True
     )
 
-    # Personal Details (extending accounts)
     marital_status = models.CharField(
         max_length=20, choices=MARITAL_STATUS_CHOICES, blank=True, null=True
     )
     spouse_name = models.CharField(max_length=100, blank=True, null=True)
     number_of_children = models.PositiveIntegerField(default=0)
 
-    # Work Details
     work_location = models.CharField(max_length=255, blank=True, null=True)
-    reporting_time = models.TimeField(default="09:00:00")
-    shift_hours = models.DecimalField(
-        max_digits=4,
-        decimal_places=2,
-        default=8.00,
-        validators=[
-            MinValueValidator(Decimal("1.00")),
-            MaxValueValidator(Decimal("24.00")),
-        ],
-    )
 
-    # System Fields
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -109,19 +86,92 @@ class EmployeeProfile(models.Model):
 
     class Meta:
         db_table = "employee_profiles"
-        ordering = ["employee_id"]
+        ordering = ["user__employee_code"]
         indexes = [
-            models.Index(fields=["employee_id"]),
+            models.Index(fields=["user"]),
             models.Index(fields=["employment_status"]),
             models.Index(fields=["is_active"]),
             models.Index(fields=["basic_salary"]),
         ]
 
     def __str__(self):
-        return f"{self.employee_id} - {self.user.get_full_name()}"
+        return f"{self.user.employee_code} - {self.user.get_full_name()}"
+
+    @property
+    def employee_code(self):
+        return self.user.employee_code
+
+    @property
+    def full_name(self):
+        return self.user.get_full_name()
+
+    @property
+    def email(self):
+        return self.user.email
+
+    @property
+    def phone_number(self):
+        return self.user.phone_number
+
+    @property
+    def date_of_birth(self):
+        return self.user.date_of_birth
+
+    @property
+    def gender(self):
+        return self.user.gender
+
+    @property
+    def department(self):
+        return self.user.department
+
+    @property
+    def role(self):
+        return self.user.role
+
+    @property
+    def job_title(self):
+        return self.user.job_title
+
+    @property
+    def manager(self):
+        return self.user.manager
+
+    @property
+    def hire_date(self):
+        return self.user.hire_date
+
+    @property
+    def reporting_time(self):
+        if not self.user.role:
+            return time(8, 0)
+
+        role_name = self.user.role.name
+        if role_name in [
+            "MANAGER",
+            "CASHIER",
+            "SALESMAN",
+            "CLEANER",
+            "DRIVER",
+            "ASSISTANT",
+            "STOREKEEPER",
+        ]:
+            return time(8, 0)
+        elif role_name == "OTHER_STAFF":
+            return time(8, 15)
+        elif role_name == "OFFICE_WORKER":
+            return time(8, 30)
+        else:
+            return time(8, 0)
+
+    @property
+    def shift_hours(self):
+        try:
+            return Decimal(SystemConfiguration.get_setting("NET_WORKING_HOURS", "9.75"))
+        except:
+            return Decimal("9.75")
 
     def clean(self):
-        # Validate probation end date
         if self.employment_status == "PROBATION" and not self.probation_end_date:
             raise ValidationError("Probation end date is required for probation status")
 
@@ -129,44 +179,21 @@ class EmployeeProfile(models.Model):
             if self.employment_status == "PROBATION":
                 raise ValidationError("Probation end date cannot be in the past")
 
-        # Validate confirmation date
         if self.confirmation_date and self.user.hire_date:
             if self.confirmation_date < self.user.hire_date:
                 raise ValidationError("Confirmation date cannot be before hire date")
 
     def save(self, *args, **kwargs):
-        if not self.employee_id:
-            self.employee_id = self.generate_employee_id()
         self.full_clean()
         super().save(*args, **kwargs)
 
-    def generate_employee_id(self):
-        """Generate unique employee ID"""
-        prefix = "EMP"
-        existing_ids = EmployeeProfile.objects.filter(
-            employee_id__startswith=prefix
-        ).values_list("employee_id", flat=True)
-
-        numbers = []
-        for emp_id in existing_ids:
-            try:
-                number = int(emp_id.replace(prefix, ""))
-                numbers.append(number)
-            except ValueError:
-                continue
-
-        next_number = max(numbers) + 1 if numbers else 1
-        return f"{prefix}{next_number:04d}"
-
     def soft_delete(self):
-        """Soft delete employee profile"""
         self.is_active = False
         self.deleted_at = timezone.now()
         self.save(update_fields=["is_active", "deleted_at"])
 
     @property
     def is_on_probation(self):
-        """Check if employee is currently on probation"""
         if self.employment_status != "PROBATION":
             return False
         if not self.probation_end_date:
@@ -175,7 +202,6 @@ class EmployeeProfile(models.Model):
 
     @property
     def years_of_service(self):
-        """Calculate years of service"""
         if not self.user.hire_date:
             return 0
         today = timezone.now().date()
@@ -183,8 +209,6 @@ class EmployeeProfile(models.Model):
 
 
 class Education(models.Model):
-    """Employee education records"""
-
     EDUCATION_LEVELS = [
         ("HIGH_SCHOOL", "High School"),
         ("DIPLOMA", "Diploma"),
@@ -223,7 +247,6 @@ class Education(models.Model):
     )
     verified_at = models.DateTimeField(null=True, blank=True)
 
-    # System Fields
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -262,7 +285,6 @@ class Education(models.Model):
         super().save(*args, **kwargs)
 
     def verify_education(self, verified_by_user):
-        """Mark education record as verified"""
         self.is_verified = True
         self.verified_by = verified_by_user
         self.verified_at = timezone.now()
@@ -270,8 +292,6 @@ class Education(models.Model):
 
 
 class Contract(models.Model):
-    """Employee contracts"""
-
     CONTRACT_TYPES = [
         ("PERMANENT", "Permanent Employment"),
         ("FIXED_TERM", "Fixed Term Contract"),
@@ -297,12 +317,10 @@ class Contract(models.Model):
     contract_type = models.CharField(max_length=20, choices=CONTRACT_TYPES)
     status = models.CharField(max_length=20, choices=CONTRACT_STATUS, default="DRAFT")
 
-    # Contract Dates
     start_date = models.DateField()
     end_date = models.DateField(null=True, blank=True)
     signed_date = models.DateField(null=True, blank=True)
 
-    # Contract Details
     job_title = models.CharField(max_length=100)
     department = models.ForeignKey(
         "accounts.Department", on_delete=models.PROTECT, related_name="contracts"
@@ -315,25 +333,21 @@ class Contract(models.Model):
         blank=True,
     )
 
-    # Salary Information
     basic_salary = models.DecimalField(
         max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
     )
     salary_breakdown = models.JSONField(default=dict, blank=True)
 
-    # Terms and Conditions
     terms_and_conditions = models.TextField()
     benefits = models.TextField(blank=True, null=True)
-    working_hours = models.DecimalField(max_digits=4, decimal_places=2, default=8.00)
+    working_hours = models.DecimalField(max_digits=4, decimal_places=2, default=9.75)
     probation_period_months = models.PositiveIntegerField(default=0)
     notice_period_days = models.PositiveIntegerField(default=30)
 
-    # Contract Files
     contract_file = models.FileField(
         upload_to="contracts/%Y/%m/", null=True, blank=True
     )
 
-    # System Fields
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -371,14 +385,12 @@ class Contract(models.Model):
         return f"{self.contract_number} - {self.employee.get_full_name()}"
 
     def clean(self):
-        # Validate contract dates
         if self.end_date and self.end_date <= self.start_date:
             raise ValidationError("End date must be after start date")
 
         if self.signed_date and self.signed_date > timezone.now().date():
             raise ValidationError("Signed date cannot be in the future")
 
-        # Check for overlapping contracts
         overlapping_contracts = Contract.objects.filter(
             employee=self.employee,
             status="ACTIVE",
@@ -399,7 +411,6 @@ class Contract(models.Model):
         super().save(*args, **kwargs)
 
     def generate_contract_number(self):
-        """Generate unique contract number"""
         year = timezone.now().year
         prefix = f"CON{year}"
 
@@ -419,12 +430,10 @@ class Contract(models.Model):
         return f"{prefix}{next_number:04d}"
 
     def activate_contract(self):
-        """Activate the contract"""
         self.status = "ACTIVE"
         self.save(update_fields=["status"])
 
     def terminate_contract(self, terminated_by, reason=None):
-        """Terminate the contract"""
         self.status = "TERMINATED"
         self.terminated_by = terminated_by
         self.termination_date = timezone.now()
@@ -442,14 +451,12 @@ class Contract(models.Model):
 
     @property
     def is_expired(self):
-        """Check if contract is expired"""
         if not self.end_date:
             return False
         return timezone.now().date() > self.end_date
 
     @property
     def days_remaining(self):
-        """Calculate days remaining in contract"""
         if not self.end_date:
             return None
         today = timezone.now().date()
@@ -459,7 +466,6 @@ class Contract(models.Model):
 
     @property
     def contract_duration_days(self):
-        """Calculate total contract duration in days"""
         if not self.end_date:
             return None
         return (self.end_date - self.start_date).days

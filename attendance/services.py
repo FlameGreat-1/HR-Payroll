@@ -44,7 +44,6 @@ from decimal import Decimal
 import socket
 import json
 
-
 class AttendanceService:
     @staticmethod
     def create_or_get_attendance_record(employee, attendance_date, created_by=None):

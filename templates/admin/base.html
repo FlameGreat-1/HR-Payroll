@@ -14,7 +14,84 @@
 {% endif %}
 {% block extrastyle %}{% endblock %}
 {% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% static "admin/css/rtl.css" %}">{% endif %}
-{% block extrahead %}{% endblock %}
+{% block extrahead %}
+<style>
+#changelist-filter {
+    position: fixed;
+    right: -280px;
+    top: 0;
+    height: 100vh;
+    width: 280px;
+    transition: right 0.3s ease;
+    z-index: 1000;
+    overflow-y: auto;
+    box-shadow: -3px 0 10px rgba(0,0,0,0.15);
+}
+
+#changelist-filter.show {
+    right: 0;
+}
+
+.filter-toggle {
+    position: absolute;
+    right: 20px;
+    top: 60px;
+    background: linear-gradient(135deg, #3D5AFE, #D500F9);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    z-index: 1001;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(61, 90, 254, 0.3);
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.filter-toggle:hover {
+    background: linear-gradient(135deg, #2C3E50, #8E44AD);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(61, 90, 254, 0.4);
+}
+
+.filter-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: 999;
+    display: none;
+    backdrop-filter: blur(2px);
+}
+
+.filter-overlay.show {
+    display: block;
+}
+
+.object-tools {
+    position: relative;
+}
+
+@media (max-width: 768px) {
+    #changelist-filter {
+        width: 100%;
+        right: -100%;
+    }
+    
+    .filter-toggle {
+        right: 10px;
+        top: 50px;
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+}
+</style>
+{% endblock %}
 {% block responsive %}
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link rel="stylesheet" type="text/css" href="{% static "admin/css/responsive.css" %}">
@@ -94,7 +171,65 @@
     {% block footer %}<div id="footer"></div>{% endblock %}
 </div>
 
-{% block extrajs %}{% endblock %}
+{% block extrajs %}
+<script>
+// Collapsible Filter Functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const filter = document.getElementById('changelist-filter');
+    if (!filter) return;
+    
+    // Create toggle button
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'filter-toggle';
+    toggleBtn.innerHTML = '🔍 Filters';
+    toggleBtn.title = 'Toggle Filters';
+    
+    // Find object-tools or content area to append button
+    const objectTools = document.querySelector('.object-tools');
+    const contentArea = document.querySelector('#content');
+    
+    if (objectTools) {
+        objectTools.appendChild(toggleBtn);
+    } else if (contentArea) {
+        contentArea.appendChild(toggleBtn);
+    } else {
+        document.body.appendChild(toggleBtn);
+    }
+    
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'filter-overlay';
+    document.body.appendChild(overlay);
+    
+    // Toggle function
+    function toggleFilter() {
+        const isShowing = filter.classList.contains('show');
+        filter.classList.toggle('show');
+        overlay.classList.toggle('show');
+        toggleBtn.innerHTML = isShowing ? '🔍 Filters' : '✕ Close';
+    }
+    
+    // Event listeners
+    toggleBtn.addEventListener('click', toggleFilter);
+    overlay.addEventListener('click', toggleFilter);
+    
+    // Close on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && filter.classList.contains('show')) {
+            toggleFilter();
+        }
+    });
+    
+    // Auto-close after applying filter
+    const filterLinks = filter.querySelectorAll('a');
+    filterLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            setTimeout(toggleFilter, 200);
+        });
+    });
+});
+</script>
+{% endblock %}
 <script src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
 <script src="{% static 'admin/js/jquery.init.js' %}"></script>
 <script src="{% static 'admin/js/core.js' %}"></script>

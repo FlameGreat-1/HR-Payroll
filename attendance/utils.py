@@ -157,9 +157,9 @@ class EmployeeDataManager:
         today = timezone.now().date()
         try:
             return employee.contracts.filter(
+                Q(end_date__isnull=True) | Q(end_date__gte=today),
                 status='ACTIVE',
                 start_date__lte=today,
-                Q(end_date__isnull=True) | Q(end_date__gte=today)
             ).first()
         except Contract.DoesNotExist:
             return None

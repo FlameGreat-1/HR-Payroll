@@ -9,7 +9,6 @@ from datetime import timedelta
 from employees.models import EmployeeProfile, Education, Contract
 from employees.admin import EmployeeProfileAdmin, EducationAdmin, ContractAdmin
 
-
 class HRAdminSite(AdminSite):
     site_header = "HR Payroll System"
     site_title = "HR Admin Portal"

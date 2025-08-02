@@ -24,7 +24,6 @@ from .models import (
     AttendanceDevice,
     AttendanceCorrection,
     AttendanceReport,
-    AttendanceSettings,
     Shift,
     EmployeeShift,
     Holiday,
@@ -56,9 +55,9 @@ from .permissions import (
     EmployeeAttendancePermission,
     LeavePermission,
     BulkOperationPermission,
-    TimeBasedPermission
+    TimeBasedPermission,
 )
-from accounts.models import CustomUser
+from accounts.models import CustomUser, SystemConfiguration
 from employees.models import EmployeeProfile
 
 logger = logging.getLogger(__name__)
@@ -495,16 +494,25 @@ class ManualEntryFilter(SimpleListFilter):
         return queryset
 
 
-@admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
     list_display = [
-        "employee_info",
+        "division_info",
+        "employee_code_display",
+        "full_name",
+        "email_display",
+        "department_display",
         "date_display",
         "status_badge",
         "time_summary",
-        "work_performance",
-        "punctuality_info",
+        "performance_score",
+        "punctuality_score",
         "shift_info",
+        "in_1",
+        "out_1",
+        "in_2",
+        "out_2",
+        "in_3",
+        "out_3",
         "actions_column",
     ]
 
@@ -623,26 +631,63 @@ class AttendanceAdmin(admin.ModelAdmin):
         "updated_at",
     ]
 
-    def employee_info(self, obj):
+    def division_info(self, obj):
+        if not obj.employee or not obj.employee.department:
+            return format_html('<span style="color: #6C757D;">N/A</span>')
+
+        return format_html(
+            '<div style="font-weight: bold; color: #2C3E50;">{}</div>',
+            obj.employee.department.name,
+        )
+
+    division_info.short_description = "🏢 Division"
+    division_info.admin_order_field = "employee__department__name"
+
+    def employee_code_display(self, obj):
+        if not obj.employee:
+            return format_html('<span style="color: red;">❌ No Code</span>')
+
+        return format_html(
+            '<div style="font-family: monospace; font-weight: bold; color: #2C3E50;">{}</div>',
+            obj.employee.employee_code,
+        )
+
+    employee_code_display.short_description = "🆔 Code"
+    employee_code_display.admin_order_field = "employee__employee_code"
+
+    def full_name(self, obj):
         if not obj.employee:
             return format_html('<span style="color: red;">❌ No Employee</span>')
 
-        employee = obj.employee
-        department = employee.department.name if employee.department else "N/A"
-
         return format_html(
-            '<div style="line-height: 1.4;">'
-            '<strong style="color: #2C3E50;">{}</strong><br>'
-            '<small style="color: #7F8C8D;">📧 {}</small><br>'
-            '<small style="color: #7F8C8D;">🏢 {}</small>'
-            "</div>",
-            employee.get_full_name(),
-            employee.email,
-            department,
+            '<div style="font-weight: bold; color: #2C3E50;">{}</div>',
+            obj.employee.get_full_name(),
         )
 
-    employee_info.short_description = "👤 Employee"
-    employee_info.admin_order_field = "employee__first_name"
+    full_name.short_description = "👤 Name"
+    full_name.admin_order_field = "employee__first_name"
+
+    def email_display(self, obj):
+        if not obj.employee:
+            return format_html('<span style="color: #6C757D;">N/A</span>')
+
+        return format_html(
+            '<div style="font-size: 11px; color: #7F8C8D;">{}</div>', obj.employee.email
+        )
+
+    email_display.short_description = "📧 Email"
+    email_display.admin_order_field = "employee__email"
+
+    def department_display(self, obj):
+        if not obj.employee or not obj.employee.department:
+            return format_html('<span style="color: #6C757D;">N/A</span>')
+
+        return format_html(
+            '<div style="color: #7F8C8D;">{}</div>', obj.employee.department.name
+        )
+
+    department_display.short_description = "🏢 Department"
+    department_display.admin_order_field = "employee__department__name"
 
     def date_display(self, obj):
         if not obj.date:
@@ -721,43 +766,46 @@ class AttendanceAdmin(admin.ModelAdmin):
             else "00:00:00"
         )
 
-        return format_html(
-            '<div style="font-family: monospace; font-size: 11px; line-height: 1.3;">'
-            '<div style="color: #2C3E50;"><strong>⏱️ Work: {}</strong></div>'
-            '<div style="color: #7F8C8D;">📊 Total: {}</div>'
-            '<div style="color: #7F8C8D;">☕ Break: {}</div>'
-            "</div>",
-            work_time_str,
-            total_time_str,
-            break_time_str,
-        )
-
-    time_summary.short_description = "⏱️ Time Summary"
-
-    def work_performance(self, obj):
-        if not obj.work_time:
-            return format_html('<span style="color: #6C757D;">❓ No Data</span>')
-
-        work_hours = TimeCalculator.duration_to_decimal_hours(obj.work_time)
         overtime_str = (
             ReportGenerator.format_duration_for_display(obj.overtime)
             if obj.overtime
             else "00:00:00"
         )
-        attendance_percentage = obj.attendance_percentage
 
-        if work_hours >= 8:
+        return format_html(
+            '<div style="font-family: monospace; font-size: 11px; line-height: 1.3;">'
+            '<div style="color: #2C3E50;"><strong>⏱️ Work: {}</strong></div>'
+            '<div style="color: #7F8C8D;">📊 Total: {}</div>'
+            '<div style="color: #7F8C8D;">☕ Break: {}</div>'
+            '<div style="color: #E67E22;"><strong>⏰ OT: {}</strong></div>'
+            "</div>",
+            work_time_str,
+            total_time_str,
+            break_time_str,
+            overtime_str,
+        )
+
+    time_summary.short_description = "⏱️ Time Summary"
+
+    def performance_score(self, obj):
+        if not obj.work_time:
+            return format_html('<span style="color: #6C757D;">❓ No Data</span>')
+
+        work_hours = TimeCalculator.duration_to_decimal_hours(obj.work_time)
+        performance_percentage = obj.performance_score
+
+        if performance_percentage >= 90:
             performance_color = "#27AE60"
             performance_icon = "🚀"
             performance_text = "Excellent"
-        elif work_hours >= 7:
+        elif performance_percentage >= 75:
             performance_color = "#3498DB"
             performance_icon = "✅"
             performance_text = "Good"
-        elif work_hours >= 4:
+        elif performance_percentage >= 60:
             performance_color = "#F39C12"
             performance_icon = "⚠️"
-            performance_text = "Below Average"
+            performance_text = "Average"
         else:
             performance_color = "#E74C3C"
             performance_icon = "❌"
@@ -766,39 +814,52 @@ class AttendanceAdmin(admin.ModelAdmin):
         return format_html(
             '<div style="font-size: 11px; line-height: 1.3;">'
             '<div style="color: {}; font-weight: bold;">{} {}</div>'
-            '<div style="color: #7F8C8D;">⏰ OT: {}</div>'
             '<div style="color: #7F8C8D;">📈 {}%</div>'
             "</div>",
             performance_color,
             performance_icon,
             performance_text,
-            overtime_str,
-            attendance_percentage or 0,
+            performance_percentage or 0,
         )
 
-    work_performance.short_description = "📈 Performance"
+    performance_score.short_description = "📈 Performance"
 
-    def punctuality_info(self, obj):
+    def punctuality_score(self, obj):
+        punctuality_percentage = obj.punctuality_score
         late_mins = obj.late_minutes or 0
         early_mins = obj.early_departure_minutes or 0
 
-        if late_mins == 0 and early_mins == 0:
-            return format_html(
-                '<span style="color: #27AE60; font-weight: bold;">✅ On Time</span>'
-            )
+        if punctuality_percentage >= 95:
+            punctuality_color = "#27AE60"
+            punctuality_icon = "🎯"
+        elif punctuality_percentage >= 80:
+            punctuality_color = "#3498DB"
+            punctuality_icon = "✅"
+        elif punctuality_percentage >= 60:
+            punctuality_color = "#F39C12"
+            punctuality_icon = "⚠️"
+        else:
+            punctuality_color = "#E74C3C"
+            punctuality_icon = "❌"
 
         info_parts = []
         if late_mins > 0:
-            info_parts.append(f"🔴 Late: {late_mins}m")
+            info_parts.append(f"Late: {late_mins}m")
         if early_mins > 0:
-            info_parts.append(f"🟡 Early: {early_mins}m")
+            info_parts.append(f"Early: {early_mins}m")
 
         return format_html(
-            '<div style="font-size: 11px; color: #E74C3C;">{}</div>',
-            "<br>".join(info_parts),
+            '<div style="font-size: 11px; line-height: 1.3;">'
+            '<div style="color: {}; font-weight: bold;">{} {}%</div>'
+            '<div style="color: #7F8C8D;">{}</div>'
+            "</div>",
+            punctuality_color,
+            punctuality_icon,
+            punctuality_percentage or 100,
+            " | ".join(info_parts) if info_parts else "On Time",
         )
 
-    punctuality_info.short_description = "🎯 Punctuality"
+    punctuality_score.short_description = "🎯 Punctuality"
 
     def shift_info(self, obj):
         if not obj.shift:
@@ -816,6 +877,66 @@ class AttendanceAdmin(admin.ModelAdmin):
         )
 
     shift_info.short_description = "🕐 Shift"
+
+    def in_1(self, obj):
+        if obj.check_in_1:
+            return format_html(
+                '<div style="font-family: monospace; color: #27AE60; font-weight: bold;">{}</div>',
+                obj.check_in_1.strftime("%H:%M")
+            )
+        return format_html('<span style="color: #6C757D;">--:--</span>')
+
+    in_1.short_description = "🟢 IN 1"
+
+    def out_1(self, obj):
+        if obj.check_out_1:
+            return format_html(
+                '<div style="font-family: monospace; color: #E74C3C; font-weight: bold;">{}</div>',
+                obj.check_out_1.strftime("%H:%M")
+            )
+        return format_html('<span style="color: #6C757D;">--:--</span>')
+
+    out_1.short_description = "🔴 OUT 1"
+
+    def in_2(self, obj):
+        if obj.check_in_2:
+            return format_html(
+                '<div style="font-family: monospace; color: #27AE60; font-weight: bold;">{}</div>',
+                obj.check_in_2.strftime("%H:%M")
+            )
+        return format_html('<span style="color: #6C757D;">--:--</span>')
+
+    in_2.short_description = "🟢 IN 2"
+
+    def out_2(self, obj):
+        if obj.check_out_2:
+            return format_html(
+                '<div style="font-family: monospace; color: #E74C3C; font-weight: bold;">{}</div>',
+                obj.check_out_2.strftime("%H:%M")
+            )
+        return format_html('<span style="color: #6C757D;">--:--</span>')
+
+    out_2.short_description = "🔴 OUT 2"
+
+    def in_3(self, obj):
+        if obj.check_in_3:
+            return format_html(
+                '<div style="font-family: monospace; color: #27AE60; font-weight: bold;">{}</div>',
+                obj.check_in_3.strftime("%H:%M")
+            )
+        return format_html('<span style="color: #6C757D;">--:--</span>')
+
+    in_3.short_description = "🟢 IN 3"
+
+    def out_3(self, obj):
+        if obj.check_out_3:
+            return format_html(
+                '<div style="font-family: monospace; color: #E74C3C; font-weight: bold;">{}</div>',
+                obj.check_out_3.strftime("%H:%M")
+            )
+        return format_html('<span style="color: #6C757D;">--:--</span>')
+
+    out_3.short_description = "🔴 OUT 3"
 
     def actions_column(self, obj):
         return format_html(
@@ -864,39 +985,51 @@ class AttendanceAdmin(admin.ModelAdmin):
         CacheManager.invalidate_employee_cache(obj.employee.id)
 
     def has_view_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         return check_attendance_permission(request.user, 'view_attendance')
-    
+
     def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         if obj:
             return EmployeeAttendancePermission.can_edit_employee_attendance(request.user, obj.employee)
         return check_attendance_permission(request.user, 'edit_employee_attendance')
-    
+
     def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser or (request.user.role and request.user.role.name == 'HR_ADMIN')
-    
+        if request.user.is_superuser:
+            return True
+        return request.user.role and request.user.role.name == 'SUPER_ADMIN'
+
     def get_queryset(self, request):
+        if request.user.is_superuser:
+            return super().get_queryset(request)
+
         qs = super().get_queryset(request)
         accessible_employees = get_accessible_employees(request.user)
         return qs.filter(employee__in=accessible_employees)
-    
+
     def get_actions(self, request):
+        if request.user.is_superuser:
+            return super().get_actions(request)
+
         actions = super().get_actions(request)
-        
+
         if not ReportPermission.can_export_attendance_data(request.user):
             if 'export_attendance_excel' in actions:
                 del actions['export_attendance_excel']
-        
+
         if not DevicePermission.can_sync_device_data(request.user):
             if 'sync_with_devices' in actions:
                 del actions['sync_with_devices']
-        
+
         if not BulkOperationPermission.can_bulk_update_attendance(request.user):
             if 'calculate_monthly_summaries' in actions:
                 del actions['calculate_monthly_summaries']
-        
+
         return actions
 
-@admin.register(AttendanceLog)
+
 class AttendanceLogAdmin(admin.ModelAdmin):
     list_display = [
         "employee_display",
@@ -1022,20 +1155,28 @@ class AttendanceLogAdmin(admin.ModelAdmin):
     status_indicator.short_description = "⚙️ Status"
 
     def has_view_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         return DevicePermission.can_view_device_logs(request.user)
-    
+
     def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         return DevicePermission.can_manage_devices(request.user)
-    
+
     def has_delete_permission(self, request, obj=None):
         return request.user.is_superuser
-    
+
     def get_queryset(self, request):
+        if request.user.is_superuser:
+            return super().get_queryset(request)
+
         qs = super().get_queryset(request)
         accessible_employees = get_accessible_employees(request.user)
-        return qs.filter(employee_code__in=[emp.employee_code for emp in accessible_employees if hasattr(emp, 'employee_code')])
+        return qs.filter(
+            employee_code__in=[emp.employee_code for emp in accessible_employees]
+        )
 
-@admin.register(MonthlyAttendanceSummary)
 class MonthlyAttendanceSummaryAdmin(admin.ModelAdmin):
     list_display = [
         "employee_summary",
@@ -1116,13 +1257,15 @@ class MonthlyAttendanceSummaryAdmin(admin.ModelAdmin):
     employee_summary.short_description = "👤 Employee"
 
     def period_display(self, obj):
+        month_str = str(obj.month).zfill(2) if obj.month else "00"
+        
         return format_html(
             '<div style="text-align: center;">'
-            '<strong style="color: #2C3E50;">{}/{:02d}</strong><br>'
+            '<strong style="color: #2C3E50;">{}/{}</strong><br>'
             '<small style="color: #7F8C8D;">📅 {} Days</small>'
             "</div>",
             obj.year,
-            obj.month,
+            month_str,
             obj.working_days,
         )
 
@@ -1145,15 +1288,19 @@ class MonthlyAttendanceSummaryAdmin(admin.ModelAdmin):
     attendance_metrics.short_description = "📊 Attendance"
 
     def performance_score(self, obj):
+        attendance_pct = float(str(obj.attendance_percentage)) if obj.attendance_percentage else 0
+        punctuality_pct = float(str(obj.punctuality_score)) if obj.punctuality_score else 0
+        avg_hours = float(str(obj.average_work_hours)) if obj.average_work_hours else 0
+        
         attendance_color = (
             "#27AE60"
-            if obj.attendance_percentage >= 90
-            else "#F39C12" if obj.attendance_percentage >= 75 else "#E74C3C"
+            if attendance_pct >= 90
+            else "#F39C12" if attendance_pct >= 75 else "#E74C3C"
         )
         punctuality_color = (
             "#27AE60"
-            if obj.punctuality_score >= 90
-            else "#F39C12" if obj.punctuality_score >= 75 else "#E74C3C"
+            if punctuality_pct >= 90
+            else "#F39C12" if punctuality_pct >= 75 else "#E74C3C"
         )
 
         return format_html(
@@ -1163,16 +1310,16 @@ class MonthlyAttendanceSummaryAdmin(admin.ModelAdmin):
             '<div style="color: #7F8C8D;">⏱️ Avg Hours: {}</div>'
             "</div>",
             attendance_color,
-            obj.attendance_percentage,
+            round(attendance_pct, 1),
             punctuality_color,
-            obj.punctuality_score,
-            obj.average_work_hours,
+            round(punctuality_pct, 1),
+            round(avg_hours, 1),
         )
 
     performance_score.short_description = "📈 Performance"
 
     def efficiency_display(self, obj):
-        efficiency = obj.efficiency_score
+        efficiency = float(str(obj.efficiency_score)) if obj.efficiency_score else 0
 
         if efficiency >= 90:
             color = "#27AE60"
@@ -1200,28 +1347,34 @@ class MonthlyAttendanceSummaryAdmin(admin.ModelAdmin):
             icon,
             color,
             label,
-            efficiency,
+            round(efficiency, 1),
         )
 
     efficiency_display.short_description = "⭐ Efficiency"
 
     def has_view_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         return check_attendance_permission(request.user, "view_attendance")
 
     def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser or (
-            request.user.role and request.user.role.name in ["HR_ADMIN", "HR_MANAGER"]
-        )
+        if request.user.is_superuser:
+            return True
+        return request.user.role and request.user.role.name in [
+            "SUPER_ADMIN",
+            "MANAGER",
+        ]
 
     def has_delete_permission(self, request, obj=None):
         return request.user.is_superuser
 
     def get_queryset(self, request):
+        if request.user.is_superuser:
+            return super().get_queryset(request)
+
         qs = super().get_queryset(request)
         accessible_employees = get_accessible_employees(request.user)
         return qs.filter(employee__in=accessible_employees)
-
-@admin.register(AttendanceDevice)
 class AttendanceDeviceAdmin(admin.ModelAdmin):
     list_display = [
         "device_info",
@@ -1373,20 +1526,29 @@ class AttendanceDeviceAdmin(admin.ModelAdmin):
         )
 
     device_actions.short_description = "⚙️ Actions"
-    
+
     def has_view_permission(self, request, obj=None):
-        return DevicePermission.can_manage_devices(request.user) or DevicePermission.can_view_device_logs(request.user)
-    
+        if request.user.is_superuser:
+            return True
+        return DevicePermission.can_manage_devices(
+            request.user
+        ) or DevicePermission.can_view_device_logs(request.user)
+
     def has_change_permission(self, request, obj=None):
-        return DevicePermission.can_manage_devices(request.user)
-    
-    def has_add_permission(self, request):
-        return DevicePermission.can_manage_devices(request.user)
-    
-    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         return DevicePermission.can_manage_devices(request.user)
 
-@admin.register(AttendanceCorrection)
+    def has_add_permission(self, request):
+        if request.user.is_superuser:
+            return True
+        return DevicePermission.can_manage_devices(request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return DevicePermission.can_manage_devices(request.user)
+
 class AttendanceCorrectionAdmin(admin.ModelAdmin):
     list_display = ['correction_info', 'correction_type_badge', 'attendance_details', 'status_badge', 'approval_info']
     list_filter = ['correction_type', 'status', 'requested_at']
@@ -1501,9 +1663,13 @@ class AttendanceCorrectionAdmin(admin.ModelAdmin):
     approval_info.short_description = "✅ Approved By"
 
     def has_view_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         return check_attendance_permission(request.user, "view_attendance")
 
     def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         if obj:
             return EmployeeAttendancePermission.can_approve_attendance_correction(
                 request.user, obj.attendance.employee
@@ -1511,16 +1677,19 @@ class AttendanceCorrectionAdmin(admin.ModelAdmin):
         return True
 
     def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser or (
-            request.user.role and request.user.role.name == "HR_ADMIN"
-        )
+        if request.user.is_superuser:
+            return True
+        return request.user.role and request.user.role.name == "SUPER_ADMIN"
 
     def get_queryset(self, request):
+        if request.user.is_superuser:
+            return super().get_queryset(request)
+        
         qs = super().get_queryset(request)
         accessible_employees = get_accessible_employees(request.user)
         return qs.filter(attendance__employee__in=accessible_employees)
 
-@admin.register(AttendanceReport)
+
 class AttendanceReportAdmin(admin.ModelAdmin):
     list_display = [
         "report_info",
@@ -1633,20 +1802,28 @@ class AttendanceReportAdmin(admin.ModelAdmin):
         )
 
     generated_info.short_description = "🕐 Generated"
-    
-    def has_view_permission(self, request, obj=None):
-        return ReportPermission.can_generate_reports(request.user)
-    
-    def has_change_permission(self, request, obj=None):
-        return ReportPermission.can_generate_reports(request.user)
-    
-    def has_add_permission(self, request):
-        return ReportPermission.can_generate_reports(request.user)
-    
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser or (request.user.role and request.user.role.name == 'HR_ADMIN')
 
-@admin.register(Holiday)
+    def has_view_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return ReportPermission.can_generate_reports(request.user)
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return ReportPermission.can_generate_reports(request.user)
+
+    def has_add_permission(self, request):
+        if request.user.is_superuser:
+            return True
+        return ReportPermission.can_generate_reports(request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return request.user.role and request.user.role.name == 'SUPER_ADMIN'
+
+
 class HolidayAdmin(admin.ModelAdmin):
     list_display = [
         "holiday_info",
@@ -1793,136 +1970,23 @@ class HolidayAdmin(admin.ModelAdmin):
 
     def has_view_permission(self, request, obj=None):
         return True
-    
+
     def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         return SystemPermission.can_manage_holidays(request.user)
-    
+
     def has_add_permission(self, request):
+        if request.user.is_superuser:
+            return True
         return SystemPermission.can_manage_holidays(request.user)
-    
+
     def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         return SystemPermission.can_manage_holidays(request.user)
 
-@admin.register(AttendanceSettings)
-class AttendanceSettingsAdmin(admin.ModelAdmin):
-    list_display = [
-        "setting_info",
-        "setting_type_badge",
-        "value_display",
-        "status_indicator",
-        "last_updated",
-    ]
-    list_filter = ["setting_type", "is_active", "updated_at"]
-    search_fields = ["key", "description", "value"]
-    list_per_page = 30
-    ordering = ["key"]
 
-    fieldsets = (
-        (
-            "⚙️ Setting Information",
-            {"fields": ("key", "value", "setting_type"), "classes": ("wide",)},
-        ),
-        ("📝 Description", {"fields": ("description",), "classes": ("wide",)}),
-        ("🏷️ Status", {"fields": ("is_active",), "classes": ("wide",)}),
-        (
-            "📝 Metadata",
-            {
-                "fields": ("updated_by", "created_at", "updated_at"),
-                "classes": ("collapse",),
-            },
-        ),
-    )
-
-    readonly_fields = ["created_at", "updated_at"]
-
-    def setting_info(self, obj):
-        return format_html(
-            "<div>"
-            '<strong style="color: #2C3E50; font-family: monospace;">{}</strong><br>'
-            '<small style="color: #7F8C8D;">{}</small>'
-            "</div>",
-            obj.key,
-            (
-                obj.description[:60] + "..."
-                if obj.description and len(obj.description) > 60
-                else obj.description or ""
-            ),
-        )
-
-    setting_info.short_description = "⚙️ Setting"
-
-    def setting_type_badge(self, obj):
-        type_config = {
-            "SYSTEM": {"color": "#3498DB", "icon": "🖥️"},
-            "CALCULATION": {"color": "#E67E22", "icon": "🧮"},
-            "NOTIFICATION": {"color": "#9B59B6", "icon": "🔔"},
-            "DEVICE": {"color": "#1ABC9C", "icon": "📱"},
-        }
-
-        config = type_config.get(obj.setting_type, {"color": "#6C757D", "icon": "❓"})
-
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
-            config["color"],
-            config["icon"],
-            obj.get_setting_type_display(),
-        )
-
-    setting_type_badge.short_description = "🏷️ Type"
-
-    def value_display(self, obj):
-        value = obj.value
-        if len(value) > 50:
-            display_value = value[:47] + "..."
-        else:
-            display_value = value
-
-        return format_html(
-            '<div style="font-family: monospace; background: #F8F9FA; padding: 2px 4px; border-radius: 3px;">'
-            "{}"
-            "</div>",
-            display_value,
-        )
-
-    value_display.short_description = "💾 Value"
-
-    def status_indicator(self, obj):
-        if obj.is_active:
-            return format_html(
-                '<span style="color: #27AE60; font-weight: bold;">✅ Active</span>'
-            )
-        else:
-            return format_html(
-                '<span style="color: #E74C3C; font-weight: bold;">❌ Inactive</span>'
-            )
-
-    status_indicator.short_description = "📊 Status"
-
-    def last_updated(self, obj):
-        return format_html(
-            '<div style="font-size: 11px;">'
-            "<div>{}</div>"
-            '<div style="color: #7F8C8D;">{}</div>'
-            "</div>",
-            obj.updated_at.strftime("%Y-%m-%d") if obj.updated_at else "Never",
-            obj.updated_by.get_full_name() if obj.updated_by else "System",
-        )
-
-    last_updated.short_description = "🕐 Updated"
-
-    
-    def has_view_permission(self, request, obj=None):
-        return SystemPermission.can_access_attendance_settings(request.user)
-    
-    def has_change_permission(self, request, obj=None):
-        return SystemPermission.can_access_attendance_settings(request.user)
-    
-    def has_add_permission(self, request):
-        return SystemPermission.can_access_attendance_settings(request.user)
-    
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser
-@admin.register(EmployeeShift)
 class EmployeeShiftAdmin(admin.ModelAdmin):
     list_display = [
         "employee_shift_info",
@@ -2063,24 +2127,208 @@ class EmployeeShiftAdmin(admin.ModelAdmin):
 
     assigned_by_info.short_description = "👤 Assigned By"
 
-    
     def has_view_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         return SystemPermission.can_manage_shifts(request.user)
-    
+
     def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         return SystemPermission.can_manage_shifts(request.user)
-    
+
     def has_add_permission(self, request):
+        if request.user.is_superuser:
+            return True
         return SystemPermission.can_manage_shifts(request.user)
-    
+
     def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         return SystemPermission.can_manage_shifts(request.user)
-    
+
     def get_queryset(self, request):
+        if request.user.is_superuser:
+            return super().get_queryset(request)
+
         qs = super().get_queryset(request)
         accessible_employees = get_accessible_employees(request.user)
         return qs.filter(employee__in=accessible_employees)
-@admin.register(LeaveType)
+
+class ShiftAdmin(admin.ModelAdmin):
+    list_display = [
+        "shift_info",
+        "timing_display",
+        "shift_type_display",
+        "status_display",
+        "employee_count",
+    ]
+    list_filter = [
+        "shift_type",
+        "is_active",
+        "is_night_shift",
+        "weekend_applicable",
+        "holiday_applicable",
+    ]
+    search_fields = ["name", "code"]
+    list_per_page = 25
+    ordering = ["name"]
+
+    fieldsets = (
+        (
+            "🕐 Shift Information",
+            {"fields": ("name", "code", "shift_type"), "classes": ("wide",)},
+        ),
+        (
+            "⏰ Timing",
+            {
+                "fields": (
+                    "start_time",
+                    "end_time",
+                    "working_hours",
+                    "break_duration_minutes",
+                ),
+                "classes": ("wide",),
+            },
+        ),
+        (
+            "⚙️ Settings",
+            {
+                "fields": (
+                    "grace_period_minutes",
+                    "overtime_threshold_minutes",
+                    "is_night_shift",
+                    "weekend_applicable",
+                    "holiday_applicable",
+                    "is_active",
+                ),
+                "classes": ("wide",),
+            },
+        ),
+        (
+            "📝 Metadata",
+            {
+                "fields": ("created_at", "updated_at", "created_by"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    readonly_fields = ["created_at", "updated_at"]
+
+    def shift_info(self, obj):
+        return format_html(
+            "<div>"
+            '<strong style="color: #2C3E50;">{}</strong><br>'
+            '<small style="color: #7F8C8D;">🆔 {}</small><br>'
+            '<small style="color: #7F8C8D;">⏱️ {} hours</small>'
+            "</div>",
+            obj.name,
+            obj.code,
+            obj.working_hours,
+        )
+
+    shift_info.short_description = "🕐 Shift"
+
+    def timing_display(self, obj):
+        return format_html(
+            '<div style="font-family: monospace;">'
+            "<strong>{} - {}</strong><br>"
+            '<small style="color: #7F8C8D;">Break: {} min</small><br>'
+            '<small style="color: #7F8C8D;">Grace: {} min</small>'
+            "</div>",
+            obj.start_time.strftime("%H:%M"),
+            obj.end_time.strftime("%H:%M"),
+            obj.break_duration_minutes,
+            obj.grace_period_minutes,
+        )
+
+    timing_display.short_description = "⏰ Timing"
+
+    def shift_type_display(self, obj):
+        return format_html(
+            '<span style="background: #E3F2FD; color: #1976D2; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold;">'
+            "{}"
+            "</span>",
+            obj.get_shift_type_display(),
+        )
+
+    shift_type_display.short_description = "📋 Type"
+
+    def status_display(self, obj):
+        from django.utils.safestring import mark_safe
+        
+        status_parts = []
+
+        if obj.is_active:
+            status_parts.append('<span style="color: #27AE60;">🟢 Active</span>')
+        else:
+            status_parts.append('<span style="color: #E74C3C;">🔴 Inactive</span>')
+
+        if obj.is_night_shift:
+            status_parts.append('<span style="color: #9B59B6;"> Night</span>')
+
+        if obj.weekend_applicable:
+            status_parts.append('<span style="color: #3498DB;">📅 Weekend</span>')
+
+        if obj.holiday_applicable:
+            status_parts.append('<span style="color: #F39C12;">🎉 Holiday</span>')
+
+        return mark_safe('<div style="font-size: 10px;">' + '<br>'.join(status_parts) + '</div>')
+
+    status_display.short_description = "📊 Status"
+
+    def employee_count(self, obj):
+        try:
+            from django.apps import apps
+            EmployeeShift = apps.get_model('attendance', 'EmployeeShift')
+            count = EmployeeShift.objects.filter(shift=obj, is_active=True).count()
+        except:
+            try:
+                count = obj.shift_employees.filter(is_active=True).count()
+            except:
+                try:
+                    count = obj.employees.filter(is_active=True).count()
+                except:
+                    count = 0
+            
+        return format_html(
+            '<span style="background: #F8F9FA; color: #2C3E50; padding: 2px 6px; border-radius: 3px; font-weight: bold; border: 1px solid #DEE2E6;">'
+            "{} employees"
+            "</span>",
+            count,
+        )
+
+    employee_count.short_description = "👥 Assigned"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related("created_by")
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+    def has_view_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return SystemPermission.can_manage_shifts(request.user)
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return SystemPermission.can_manage_shifts(request.user)
+
+    def has_add_permission(self, request):
+        if request.user.is_superuser:
+            return True
+        return SystemPermission.can_manage_shifts(request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return SystemPermission.can_manage_shifts(request.user)
 class LeaveTypeAdmin(admin.ModelAdmin):
     list_display = [
         "leave_type_info",
@@ -2247,7 +2495,27 @@ class LeaveTypeAdmin(admin.ModelAdmin):
 
     leave_status.short_description = "🏷️ Status"
 
-@admin.register(LeaveBalance)
+    def has_view_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return SystemPermission.can_manage_leave_types(request.user)
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return SystemPermission.can_manage_leave_types(request.user)
+
+    def has_add_permission(self, request):
+        if request.user.is_superuser:
+            return True
+        return SystemPermission.can_manage_leave_types(request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return SystemPermission.can_manage_leave_types(request.user)
+
+
 class LeaveBalanceAdmin(admin.ModelAdmin):
     list_display = [
         "employee_leave_info",
@@ -2386,8 +2654,35 @@ class LeaveBalanceAdmin(admin.ModelAdmin):
 
     last_updated_info.short_description = "🕐 Updated"
 
+    def has_view_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return LeavePermission.can_view_leave_balances(request.user)
 
-@admin.register(LeaveRequest)
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return LeavePermission.can_manage_leave_balances(request.user)
+
+    def has_add_permission(self, request):
+        if request.user.is_superuser:
+            return True
+        return LeavePermission.can_manage_leave_balances(request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return LeavePermission.can_manage_leave_balances(request.user)
+
+    def get_queryset(self, request):
+        if request.user.is_superuser:
+            return super().get_queryset(request)
+
+        qs = super().get_queryset(request)
+        accessible_employees = get_accessible_employees(request.user)
+        return qs.filter(employee__in=accessible_employees)
+
+
 class LeaveRequestAdmin(admin.ModelAdmin):
     list_display = [
         "employee_info",
@@ -2545,20 +2840,43 @@ class LeaveRequestAdmin(admin.ModelAdmin):
     approval_info.short_description = "✅ Approved By"
 
     def has_view_permission(self, request, obj=None):
-        return check_attendance_permission(request.user, 'view_attendance')
-    
+        if request.user.is_superuser:
+            return True
+        return check_attendance_permission(request.user, "view_attendance")
+
     def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         if obj:
             return LeavePermission.can_approve_leave(request.user, obj)
         return True
-    
+
     def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser or (request.user.role and request.user.role.name == 'HR_ADMIN')
-    
+        if request.user.is_superuser:
+            return True
+        return request.user.role and request.user.role.name == "SUPER_ADMIN"
+
     def get_queryset(self, request):
+        if request.user.is_superuser:
+            return super().get_queryset(request)
+
         qs = super().get_queryset(request)
         accessible_employees = get_accessible_employees(request.user)
         return qs.filter(employee__in=accessible_employees)
+
+
+admin.site.register(Attendance, AttendanceAdmin)
+admin.site.register(AttendanceLog, AttendanceLogAdmin)
+admin.site.register(MonthlyAttendanceSummary, MonthlyAttendanceSummaryAdmin)
+admin.site.register(AttendanceDevice, AttendanceDeviceAdmin)
+admin.site.register(AttendanceCorrection, AttendanceCorrectionAdmin)
+admin.site.register(AttendanceReport, AttendanceReportAdmin)
+admin.site.register(Holiday, HolidayAdmin)
+admin.site.register(EmployeeShift, EmployeeShiftAdmin)
+admin.site.register(Shift, ShiftAdmin)
+admin.site.register(LeaveType, LeaveTypeAdmin)
+admin.site.register(LeaveBalance, LeaveBalanceAdmin)
+admin.site.register(LeaveRequest, LeaveRequestAdmin)
 
 admin.site.site_header = "Attendance Management"
 admin.site.site_title = "Attendance Admin"

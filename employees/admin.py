@@ -7,7 +7,7 @@ from django.contrib.admin import SimpleListFilter
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.urls import path  
+from django.urls import path
 from accounts.models import CustomUser, Department
 from .models import EmployeeProfile, Education, Contract
 from .forms import (
@@ -18,6 +18,8 @@ from .forms import (
 )
 import csv
 from datetime import date, timedelta
+
+
 class EmploymentStatusFilter(SimpleListFilter):
     title = "Employment Status"
     parameter_name = "employment_status"
@@ -130,12 +132,15 @@ class ContractInline(admin.TabularInline):
             .select_related("department", "reporting_manager")
         )
 
+
 class EmployeeProfileAdmin(admin.ModelAdmin):
     form = EmployeeProfileForm
     list_display = [
-        "employee_id",
+        "get_employee_code",
         "get_full_name",
+        "get_email",
         "get_department",
+        "get_role",
         "employment_status",
         "grade_level",
         "basic_salary",
@@ -151,14 +156,26 @@ class EmployeeProfileAdmin(admin.ModelAdmin):
         "created_at",
     ]
     search_fields = [
-        "employee_id",
+        "user__employee_code",
         "user__first_name",
         "user__last_name",
         "user__email",
-        "user__employee_code",
+        "user__phone_number",
     ]
     readonly_fields = [
-        "employee_id",
+        "get_employee_code",
+        "get_full_name",
+        "get_email",
+        "get_phone_number",
+        "get_date_of_birth",
+        "get_gender",
+        "get_department",
+        "get_role",
+        "get_job_title",
+        "get_manager",
+        "get_hire_date",
+        "get_reporting_time",
+        "get_shift_hours",
         "years_of_service",
         "is_on_probation",
         "created_at",
@@ -168,18 +185,35 @@ class EmployeeProfileAdmin(admin.ModelAdmin):
     fieldsets = [
         (
             "Employee Information",
-            {"fields": ["user", "employee_id", "employment_status", "grade_level"]},
+            {"fields": ["user", "get_employee_code", "get_full_name", "get_email"]},
+        ),
+        (
+            "Basic Details",
+            {
+                "fields": [
+                    "get_phone_number",
+                    "get_date_of_birth",
+                    "get_gender",
+                    "get_department",
+                    "get_role",
+                    "get_job_title",
+                    "get_manager",
+                    "get_hire_date",
+                ]
+            },
         ),
         (
             "Employment Details",
             {
                 "fields": [
+                    "employment_status",
+                    "grade_level",
                     "basic_salary",
                     "probation_end_date",
                     "confirmation_date",
                     "work_location",
-                    "reporting_time",
-                    "shift_hours",
+                    "get_reporting_time",
+                    "get_shift_hours",
                 ]
             },
         ),
@@ -224,14 +258,43 @@ class EmployeeProfileAdmin(admin.ModelAdmin):
         return (
             super()
             .get_queryset(request)
-            .select_related("user", "user__department", "created_by")
+            .select_related(
+                "user", "user__department", "user__role", "user__manager", "created_by"
+            )
         )
+
+    def get_employee_code(self, obj):
+        return obj.user.employee_code
+
+    get_employee_code.short_description = "Employee Code"
+    get_employee_code.admin_order_field = "user__employee_code"
 
     def get_full_name(self, obj):
         return obj.user.get_full_name()
 
     get_full_name.short_description = "Full Name"
     get_full_name.admin_order_field = "user__first_name"
+
+    def get_email(self, obj):
+        return obj.user.email
+
+    get_email.short_description = "Email"
+    get_email.admin_order_field = "user__email"
+
+    def get_phone_number(self, obj):
+        return obj.user.phone_number or "-"
+
+    get_phone_number.short_description = "Phone Number"
+
+    def get_date_of_birth(self, obj):
+        return obj.user.date_of_birth or "-"
+
+    get_date_of_birth.short_description = "Date of Birth"
+
+    def get_gender(self, obj):
+        return obj.user.get_gender_display() if obj.user.gender else "-"
+
+    get_gender.short_description = "Gender"
 
     def get_department(self, obj):
         if obj.user.department:
@@ -240,6 +303,41 @@ class EmployeeProfileAdmin(admin.ModelAdmin):
 
     get_department.short_description = "Department"
     get_department.admin_order_field = "user__department__name"
+
+    def get_role(self, obj):
+        if obj.user.role:
+            return obj.user.role.display_name
+        return "-"
+
+    get_role.short_description = "Role"
+    get_role.admin_order_field = "user__role__display_name"
+
+    def get_job_title(self, obj):
+        return obj.user.job_title or "-"
+
+    get_job_title.short_description = "Job Title"
+
+    def get_manager(self, obj):
+        if obj.user.manager:
+            return obj.user.manager.get_full_name()
+        return "-"
+
+    get_manager.short_description = "Manager"
+
+    def get_hire_date(self, obj):
+        return obj.user.hire_date or "-"
+
+    get_hire_date.short_description = "Hire Date"
+
+    def get_reporting_time(self, obj):
+        return obj.reporting_time
+
+    get_reporting_time.short_description = "Reporting Time"
+
+    def get_shift_hours(self, obj):
+        return f"{obj.shift_hours} hours"
+
+    get_shift_hours.short_description = "Shift Hours"
 
     def get_probation_status(self, obj):
         if obj.employment_status == "PROBATION":
@@ -302,30 +400,38 @@ class EmployeeProfileAdmin(admin.ModelAdmin):
         writer = csv.writer(response)
         writer.writerow(
             [
-                "Employee ID",
+                "Employee Code",
                 "Full Name",
                 "Email",
+                "Phone Number",
                 "Department",
+                "Role",
+                "Job Title",
                 "Employment Status",
                 "Grade Level",
                 "Basic Salary",
                 "Hire Date",
                 "Probation End Date",
+                "Manager",
             ]
         )
 
         for obj in queryset:
             writer.writerow(
                 [
-                    obj.employee_id,
+                    obj.user.employee_code,
                     obj.user.get_full_name(),
                     obj.user.email,
+                    obj.user.phone_number or "",
                     obj.user.department.name if obj.user.department else "",
+                    obj.user.role.display_name if obj.user.role else "",
+                    obj.user.job_title or "",
                     obj.employment_status,
                     obj.grade_level,
                     obj.basic_salary,
                     obj.user.hire_date,
                     obj.probation_end_date,
+                    obj.user.manager.get_full_name() if obj.user.manager else "",
                 ]
             )
 
@@ -376,14 +482,11 @@ class EmployeeProfileAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def bulk_import_view(self, request):
-        """Bulk import employee profiles"""
         if request.method == "POST":
             form = BulkEmployeeImportForm(request.POST, request.FILES)
             if form.is_valid():
                 try:
-                    # Handle the bulk import logic here
                     csv_file = form.cleaned_data["csv_file"]
-                    # Add your CSV processing logic here
                     messages.success(request, "Employees imported successfully.")
                     return redirect("admin:employees_employeeprofile_changelist")
                 except Exception as e:
@@ -402,12 +505,12 @@ class EmployeeProfileAdmin(admin.ModelAdmin):
         )
 
     def employeeprofile_export_view(self, request):
-        """Export employee profiles - reuse existing method"""
         return self.export_to_csv(request, EmployeeProfile.objects.all())
 
 class EducationAdmin(admin.ModelAdmin):
     form = EducationForm
     list_display = [
+        "get_employee_code",
         "get_employee_name",
         "education_level",
         "qualification",
@@ -424,9 +527,9 @@ class EducationAdmin(admin.ModelAdmin):
         "created_at",
     ]
     search_fields = [
+        "employee__employee_code",
         "employee__first_name",
         "employee__last_name",
-        "employee__employee_code",
         "qualification",
         "institution",
     ]
@@ -477,6 +580,12 @@ class EducationAdmin(admin.ModelAdmin):
             .select_related("employee", "verified_by", "created_by")
         )
 
+    def get_employee_code(self, obj):
+        return obj.employee.employee_code
+
+    get_employee_code.short_description = "Employee Code"
+    get_employee_code.admin_order_field = "employee__employee_code"
+
     def get_employee_name(self, obj):
         return obj.employee.get_full_name()
 
@@ -517,6 +626,7 @@ class EducationAdmin(admin.ModelAdmin):
         writer = csv.writer(response)
         writer.writerow(
             [
+                "Employee Code",
                 "Employee Name",
                 "Education Level",
                 "Qualification",
@@ -532,6 +642,7 @@ class EducationAdmin(admin.ModelAdmin):
         for obj in queryset:
             writer.writerow(
                 [
+                    obj.employee.employee_code,
                     obj.employee.get_full_name(),
                     obj.get_education_level_display(),
                     obj.qualification,
@@ -570,7 +681,6 @@ class EducationAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def bulk_verify_view(self, request):
-        """Bulk verify education records"""
         unverified_records = Education.objects.filter(is_verified=False).select_related(
             "employee"
         )
@@ -601,11 +711,9 @@ class EducationAdmin(admin.ModelAdmin):
         return render(request, "admin/employees/education_bulk_verify.html", context)
 
     def education_export_view(self, request):
-        """Export education records - reuse existing method"""
         return self.export_to_csv(request, Education.objects.all())
 
     def verify_individual_education(self, request, education_id):
-        """Verify a specific education record"""
         education = get_object_or_404(Education, pk=education_id)
 
         if request.method == "POST":
@@ -633,6 +741,7 @@ class ContractAdmin(admin.ModelAdmin):
     form = ContractForm
     list_display = [
         "contract_number",
+        "get_employee_code",
         "get_employee_name",
         "contract_type",
         "status",
@@ -652,9 +761,9 @@ class ContractAdmin(admin.ModelAdmin):
     ]
     search_fields = [
         "contract_number",
+        "employee__employee_code",
         "employee__first_name",
         "employee__last_name",
-        "employee__employee_code",
         "job_title",
     ]
     readonly_fields = [
@@ -719,6 +828,12 @@ class ContractAdmin(admin.ModelAdmin):
             .select_related("employee", "department", "reporting_manager", "created_by")
         )
 
+    def get_employee_code(self, obj):
+        return obj.employee.employee_code
+
+    get_employee_code.short_description = "Employee Code"
+    get_employee_code.admin_order_field = "employee__employee_code"
+
     def get_employee_name(self, obj):
         return obj.employee.get_full_name()
 
@@ -775,6 +890,7 @@ class ContractAdmin(admin.ModelAdmin):
         writer.writerow(
             [
                 "Contract Number",
+                "Employee Code",
                 "Employee Name",
                 "Contract Type",
                 "Status",
@@ -790,6 +906,7 @@ class ContractAdmin(admin.ModelAdmin):
             writer.writerow(
                 [
                     obj.contract_number,
+                    obj.employee.employee_code,
                     obj.employee.get_full_name(),
                     obj.get_contract_type_display(),
                     obj.get_status_display(),
@@ -837,7 +954,6 @@ class ContractAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def contract_renewal_form(self, request):
-        """Contract renewal form within admin"""
         contracts_expiring = Contract.objects.filter(
             end_date__lte=timezone.now().date() + timedelta(days=90), status="ACTIVE"
         ).order_by("end_date")
@@ -851,7 +967,6 @@ class ContractAdmin(admin.ModelAdmin):
         return render(request, "admin/employees/contract_renewal_form.html", context)
 
     def contract_expiry_report(self, request):
-        """Contract expiry report within admin"""
         contracts = Contract.objects.filter(end_date__isnull=False).order_by("end_date")
         today = timezone.now().date()
 
@@ -876,15 +991,12 @@ class ContractAdmin(admin.ModelAdmin):
         return render(request, "admin/employees/contract_expiry_report.html", context)
 
     def contract_export_view(self, request):
-        """Export contracts - separate from the action method"""
         return self.export_to_csv(request, Contract.objects.all())
 
     def renew_contract(self, request, contract_id):
-        """Renew a specific contract"""
         contract = get_object_or_404(Contract, pk=contract_id)
 
         if request.method == "POST":
-            # Handle contract renewal logic here
             messages.success(
                 request, f"Contract {contract.contract_number} renewal initiated."
             )
@@ -901,7 +1013,6 @@ class ContractAdmin(admin.ModelAdmin):
         )
 
     def terminate_contract_view(self, request, contract_id):
-        """Terminate a specific contract"""
         contract = get_object_or_404(Contract, pk=contract_id)
 
         if request.method == "POST":
@@ -923,3 +1034,5 @@ class ContractAdmin(admin.ModelAdmin):
         return render(
             request, "admin/employees/contract_terminate_individual.html", context
         )
+
+

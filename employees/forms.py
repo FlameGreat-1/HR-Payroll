@@ -18,7 +18,6 @@ class EmployeeProfileForm(forms.ModelForm):
         model = EmployeeProfile
         fields = [
             "user",
-            "employee_id",
             "employment_status",
             "grade_level",
             "basic_salary",
@@ -32,24 +31,13 @@ class EmployeeProfileForm(forms.ModelForm):
             "spouse_name",
             "number_of_children",
             "work_location",
-            "reporting_time",
-            "shift_hours",
             "is_active",
         ]
         widgets = {
             "probation_end_date": AdminDateWidget(),
             "confirmation_date": AdminDateWidget(),
-            "reporting_time": AdminTimeWidget(),
             "basic_salary": forms.NumberInput(
                 attrs={"step": "0.01", "min": "0.01", "class": "form-control"}
-            ),
-            "shift_hours": forms.NumberInput(
-                attrs={
-                    "step": "0.25",
-                    "min": "1.00",
-                    "max": "24.00",
-                    "class": "form-control",
-                }
             ),
             "number_of_children": forms.NumberInput(
                 attrs={"min": "0", "class": "form-control"}
@@ -77,29 +65,17 @@ class EmployeeProfileForm(forms.ModelForm):
             ),
         }
         help_texts = {
-            "employee_id": "Unique employee identifier (auto-generated if empty)",
             "basic_salary": "Monthly basic salary amount",
             "probation_end_date": "Required for probation status employees",
             "confirmation_date": "Date when employee was confirmed",
             "bank_account_number": "Bank account number for salary payments",
             "tax_identification_number": "Unique tax identification number",
-            "shift_hours": "Standard working hours per day",
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.fields["user"].queryset = CustomUser.active.all()
-
-        if not self.instance.pk:
-            # SAFE VERSION - Check before accessing
-            if "employee_id" in self.fields:
-                self.fields["employee_id"].required = False
-                self.fields[
-                    "employee_id"
-                ].help_text += " (Leave empty for auto-generation)"
-            else:
-                print("WARNING: employee_id field not found in form fields!")
 
         self._setup_conditional_fields()
 
@@ -220,6 +196,7 @@ class EmployeeProfileForm(forms.ModelForm):
             )
 
         return cleaned_data
+
 
 class EducationForm(forms.ModelForm):
 
@@ -550,7 +527,7 @@ class BulkEmployeeImportForm(forms.Form):
         required=False,
         initial=False,
         label="Update Existing Records",
-        help_text="Check to update existing employee profiles if employee_id matches",
+        help_text="Check to update existing employee profiles if employee code matches",
     )
 
     def clean_csv_file(self):
@@ -573,7 +550,7 @@ class EmployeeSearchForm(forms.Form):
         max_length=100,
         widget=forms.TextInput(
             attrs={
-                "placeholder": "Search by name, employee ID, or email...",
+                "placeholder": "Search by name, employee code, or email...",
                 "class": "form-control",
             }
         ),

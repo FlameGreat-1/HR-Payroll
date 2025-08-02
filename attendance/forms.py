@@ -160,8 +160,8 @@ class AttendanceForm(forms.ModelForm):
 
         if self.user.is_superuser:
             return CustomUser.active.all()
+        if self.user.role and self.user.role.name == "SUPER_ADMIN":
 
-        if self.user.role and self.user.role.name in ["HR_ADMIN", "HR_MANAGER"]:
             return CustomUser.active.all()
 
         if self.user.role and self.user.role.can_view_all_data:
@@ -275,8 +275,9 @@ class BulkAttendanceForm(forms.Form):
 
         if self.user.is_superuser:
             return CustomUser.active.all()
+        
+        if self.user.role and self.user.role.name == "SUPER_ADMIN":
 
-        if self.user.role and self.user.role.name in ["HR_ADMIN", "HR_MANAGER"]:
             return CustomUser.active.all()
 
         if self.user.role and self.user.role.can_view_all_data:
@@ -510,8 +511,9 @@ class LeaveRequestForm(forms.ModelForm):
 
         if self.user.is_superuser:
             return CustomUser.active.all()
+        
+        if self.user.role and self.user.role.name == "SUPER_ADMIN":
 
-        if self.user.role and self.user.role.name in ["HR_ADMIN", "HR_MANAGER"]:
             return CustomUser.active.all()
 
         accessible_employees = [self.user]
@@ -753,8 +755,9 @@ class EmployeeShiftAssignmentForm(forms.ModelForm):
 
         if self.user.is_superuser:
             return CustomUser.active.all()
+ 
+        if self.user.role and self.user.role.name == "SUPER_ADMIN":
 
-        if self.user.role and self.user.role.name in ["HR_ADMIN", "HR_MANAGER"]:
             return CustomUser.active.all()
 
         if self.user.role and self.user.role.can_manage_employees:
@@ -1150,7 +1153,8 @@ class AttendanceReportForm(forms.Form):
         if self.user.is_superuser:
             return CustomUser.active.all()
 
-        if self.user.role and self.user.role.name in ["HR_ADMIN", "HR_MANAGER"]:
+        if self.user.role and self.user.role.name == "SUPER_ADMIN":
+
             return CustomUser.active.all()
 
         if self.user.role and self.user.role.can_view_all_data:
@@ -1176,8 +1180,9 @@ class AttendanceReportForm(forms.Form):
 
         if self.user.is_superuser:
             return Department.active.all()
+      
+        if self.user.role and self.user.role.name == "SUPER_ADMIN":
 
-        if self.user.role and self.user.role.name in ["HR_ADMIN", "HR_MANAGER"]:
             return Department.active.all()
 
         if self.user.role and self.user.role.can_view_all_data:
@@ -1353,7 +1358,8 @@ class LeaveBalanceAdjustmentForm(forms.Form):
         if self.user.is_superuser:
             return CustomUser.active.all()
 
-        if self.user.role and self.user.role.name in ["HR_ADMIN", "HR_MANAGER"]:
+        if self.user.role and self.user.role.name == "SUPER_ADMIN":
+
             return CustomUser.active.all()
 
         if self.user.role and self.user.role.can_manage_employees:
