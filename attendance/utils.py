@@ -553,6 +553,8 @@ class MonthlyCalculator:
             'late_days': late_days,
             'early_days': early_days,
             'absent_days': absent_days,
+            'leave_days': 0,
+            'holiday_days': 0,
             'attendance_percentage': attendance_percentage,
             'earliest_in_time': earliest_in_time,
             'latest_out_time': latest_out_time,

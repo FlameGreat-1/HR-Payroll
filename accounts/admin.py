@@ -51,6 +51,23 @@ from attendance.admin import (
     AttendanceLogAdmin,
 )
 
+from payroll.models import (
+    PayrollPeriod,
+    Payslip,
+    PayslipItem,
+    SalaryAdvance,
+    PayrollDepartmentSummary,
+    PayrollBankTransfer,
+)
+from payroll.admin import (
+    PayrollPeriodAdmin,
+    PayslipAdmin,
+    PayslipItemAdmin,
+    SalaryAdvanceAdmin,
+    PayrollDepartmentSummaryAdmin,
+    PayrollBankTransferAdmin,
+)
+
 from .admin_site import hr_admin_site  
 
 User = get_user_model()
@@ -854,3 +871,12 @@ hr_admin_site.register(MonthlyAttendanceSummary, MonthlyAttendanceSummaryAdmin)
 hr_admin_site.register(AttendanceCorrection, AttendanceCorrectionAdmin)
 hr_admin_site.register(AttendanceReport, AttendanceReportAdmin)
 hr_admin_site.register(AttendanceLog, AttendanceLogAdmin)
+
+
+# PAYROLL REGISTRATIONS
+hr_admin_site.register(PayrollPeriod, PayrollPeriodAdmin)
+hr_admin_site.register(Payslip, PayslipAdmin)
+hr_admin_site.register(PayslipItem, PayslipItemAdmin)
+hr_admin_site.register(SalaryAdvance, SalaryAdvanceAdmin)
+hr_admin_site.register(PayrollDepartmentSummary, PayrollDepartmentSummaryAdmin)
+hr_admin_site.register(PayrollBankTransfer, PayrollBankTransferAdmin)
