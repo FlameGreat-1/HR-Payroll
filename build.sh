@@ -4,6 +4,15 @@ set -o errexit
 echo "Installing dependencies..."
 pip install -r requirements.txt
 
+echo "Creating migrations..."
+python manage.py makemigrations accounts
+python manage.py makemigrations core
+python manage.py makemigrations employees
+python manage.py makemigrations attendance
+python manage.py makemigrations payroll
+python manage.py makemigrations expenses
+python manage.py makemigrations reports
+
 echo "Collecting static files..."
 python manage.py collectstatic --no-input
 
