@@ -1,0 +1,132 @@
+databases:
+  - name: operon-db
+    databaseName: operon
+    user: hr_user
+    region: oregon
+    plan: starter
+
+services:
+  - type: web
+    name: operon
+    env: python
+    region: oregon
+    plan: starter
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn hr_payroll.wsgi:application --bind 0.0.0.0:$PORT --workers 4 --timeout 120"
+    healthCheckPath: /admin/login/
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hr-payroll-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: RENDER
+        value: "true"
+      - key: WEB_CONCURRENCY
+        value: "4"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "hr_payroll.settings"
+      - key: PYTHONPATH
+        value: "."
+      - key: ADMIN_EMAIL
+        value: "admin@softverse.com"
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: DEFAULT_FROM_EMAIL
+        value: "noreply@softverse.com"
+      - key: EMAIL_HOST
+        value: "smtp.gmail.com"
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_HOST_USER
+        value: ""
+      - key: EMAIL_HOST_PASSWORD
+        value: ""
+      - key: DOMAIN_NAME
+        value: "operon.onrender.com"
+      - key: CSRF_TRUSTED_ORIGIN
+        value: "https://operon.onrender.com"
+      - key: DJANGO_LOG_LEVEL
+        value: "INFO"
+
+  - type: redis
+    name: hr-payroll-redis
+    region: oregon
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
+
+  - type: worker
+    name: hr-payroll-celery-worker
+    env: python
+    region: oregon
+    plan: starter
+    buildCommand: "./build.sh"
+    startCommand: "celery -A hr_payroll worker --loglevel=info --concurrency=2"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hr-payroll-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: hr-payroll-redis
+          property: connectionString
+      - key: SECRET_KEY
+        sync: false
+      - key: DEBUG
+        value: "false"
+      - key: RENDER
+        value: "true"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "hr_payroll.settings"
+
+  - type: worker
+    name: hr-payroll-celery-beat
+    env: python
+    region: oregon
+    plan: starter
+    buildCommand: "./build.sh"
+    startCommand: "celery -A hr_payroll beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hr-payroll-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: hr-payroll-redis
+          property: connectionString
+      - key: SECRET_KEY
+        sync: false
+      - key: DEBUG
+        value: "false"
+      - key: RENDER
+        value: "true"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "hr_payroll.settings"
+
+  - type: cron
+    name: hr-payroll-cleanup
+    env: python
+    region: oregon
+    buildCommand: "./build.sh"
+    schedule: "0 2 * * *"
+    startCommand: "python manage.py shell -c 'from accounts.models import UserSession; UserSession.cleanup_expired_sessions()'"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hr-payroll-db
+          property: connectionString
+      - key: SECRET_KEY
+        sync: false
+      - key: DEBUG
+        value: "false"
+      - key: RENDER
+        value: "true"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "hr_payroll.settings"

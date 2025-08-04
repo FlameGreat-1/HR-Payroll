@@ -539,7 +539,6 @@ class CustomUser(AbstractUser):
         expiry_date = self.password_changed_at + timedelta(days=days)
         return timezone.now() > expiry_date
 
-
 class UserSession(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
@@ -596,6 +595,13 @@ class UserSession(models.Model):
         self.is_active = False
         self.logout_time = timezone.now()
         self.save(update_fields=["is_active", "logout_time"])
+
+    def terminate_session(self):
+        self.terminate()
+
+    def get_duration(self):
+        end_time = self.logout_time or timezone.now()
+        return end_time - self.login_time
 
     @classmethod
     def cleanup_expired_sessions(cls):

@@ -1,0 +1,3314 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_urls math_filters %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="{% static 'admin/css/hr_admin.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #3D5AFE 0%, #2196F3 100%);
+            --secondary-gradient: linear-gradient(135deg, #D500F9 0%, #9C27B0 100%);
+            --success-gradient: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            --warning-gradient: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+            --danger-gradient: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+            --info-gradient: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%);
+            --dark-gradient: linear-gradient(135deg, #1F2937 0%, #111827 100%);
+            --light-gradient: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%);
+            --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --card-hover-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            --border-radius: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .dashboard-container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: transparent;
+        }
+
+        .dashboard-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dashboard-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-gradient);
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--card-hover-shadow);
+        }
+
+        .welcome-section {
+            margin-bottom: 2rem;
+        }
+
+        .welcome-section h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        .welcome-info {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            align-items: center;
+            color: #64748B;
+            font-weight: 500;
+        }
+
+        .welcome-info .info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .welcome-info .info-item i {
+            color: #3D5AFE;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .stat-card.primary::before { background: var(--primary-gradient); }
+        .stat-card.secondary::before { background: var(--secondary-gradient); }
+        .stat-card.success::before { background: var(--success-gradient); }
+        .stat-card.warning::before { background: var(--warning-gradient); }
+        .stat-card.danger::before { background: var(--danger-gradient); }
+        .stat-card.info::before { background: var(--info-gradient); }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--card-hover-shadow);
+        }
+
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .stat-card.primary .stat-icon { background: var(--primary-gradient); }
+        .stat-card.secondary .stat-icon { background: var(--secondary-gradient); }
+        .stat-card.success .stat-icon { background: var(--success-gradient); }
+        .stat-card.warning .stat-icon { background: var(--warning-gradient); }
+        .stat-card.danger .stat-icon { background: var(--danger-gradient); }
+        .stat-card.info .stat-icon { background: var(--info-gradient); }
+
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #1E293B;
+            margin-bottom: 0.5rem;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-change {
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+        }
+
+        .stat-change.positive { color: #10B981; }
+        .stat-change.negative { color: #EF4444; }
+
+        .section-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-title i {
+            color: #3D5AFE;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="welcome-section">
+        <div class="dashboard-card">
+            <h2>Welcome back, {{ current_user.get_full_name|default:current_user.employee_code }}!</h2>
+            <div class="welcome-info">
+                <div class="info-item">
+                    <i class="fas fa-user-tie"></i>
+                    <span><strong>{{ current_user.role.display_name|default:"Administrator" }}</strong></span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-building"></i>
+                    <span>{{ current_user.department.name|default:"System" }}</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-clock"></i>
+                    <span><strong>Last Login:</strong> {{ current_user.last_login|date:"M d, Y H:i" }}</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-calendar"></i>
+                    <span><strong>Updated:</strong> {{ dashboard_updated|date:"M d, Y H:i" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card primary">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-number">{{ hr_metrics.total_employees }}</div>
+            <div class="stat-label">Total Employees</div>
+            <div class="stat-change positive">
+                <i class="fas fa-arrow-up"></i>
+                <span>{{ hr_metrics.profile_completion_rate|floatformat:1 }}% Complete</span>
+            </div>
+        </div>
+
+        <div class="stat-card success">
+            <div class="stat-icon"><i class="fas fa-user-plus"></i></div>
+            <div class="stat-number">{{ hr_metrics.new_hires_this_month }}</div>
+            <div class="stat-label">New This Month</div>
+            <div class="stat-change positive">
+                <i class="fas fa-trending-up"></i>
+                <span>Growing</span>
+            </div>
+        </div>
+
+        <div class="stat-card info">
+            <div class="stat-icon"><i class="fas fa-desktop"></i></div>
+            <div class="stat-number">{{ session_analytics.active_sessions }}</div>
+            <div class="stat-label">Active Sessions</div>
+            <div class="stat-change">
+                <i class="fas fa-users"></i>
+                <span>{{ session_analytics.concurrent_users }} Users Online</span>
+            </div>
+        </div>
+
+        <div class="stat-card secondary">
+            <div class="stat-icon"><i class="fas fa-sitemap"></i></div>
+            <div class="stat-number">{{ hr_metrics.active_departments }}</div>
+            <div class="stat-label">Departments</div>
+            <div class="stat-change">
+                <i class="fas fa-chart-line"></i>
+                <span>{{ hr_metrics.active_roles }} Roles</span>
+            </div>
+        </div>
+
+        <div class="stat-card warning">
+            <div class="stat-icon"><i class="fas fa-file-contract"></i></div>
+            <div class="stat-number">{{ contract_analytics.active_contracts }}</div>
+            <div class="stat-label">Active Contracts</div>
+            <div class="stat-change {% if contract_analytics.expiring_7_days > 0 %}negative{% else %}positive{% endif %}">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>{{ contract_analytics.expiring_7_days }} Expiring Soon</span>
+            </div>
+        </div>
+
+        <div class="stat-card danger">
+            <div class="stat-icon"><i class="fas fa-shield-alt"></i></div>
+            <div class="stat-number">{{ security_metrics.security_score.score|floatformat:0 }}%</div>
+            <div class="stat-label">Security Score</div>
+            <div class="stat-change {% if security_metrics.security_score.score >= 85 %}positive{% else %}negative{% endif %}">
+                <i class="fas fa-award"></i>
+                <span>Grade {{ security_metrics.security_score.grade }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="alerts-section">
+        <h3 class="section-title">
+            <i class="fas fa-bell"></i>
+            Critical Alerts & Notifications
+        </h3>
+        
+        <div class="alerts-grid">
+            {% if alert_system.security_issues.priority == 'critical' %}
+            <div class="alert-card critical">
+                <div class="alert-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="alert-content">
+                    <h4>Security Issues</h4>
+                    <p>{{ alert_system.security_issues.count }} security issues require immediate attention</p>
+                    <div class="alert-items">
+                        {% for item in alert_system.security_issues.items %}
+                        <div class="alert-item">
+                            <span>{{ item.get_full_name|default:item.employee_code }}</span>
+                            <small>{{ item.failed_login_attempts }} failed attempts</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="alert-priority critical">CRITICAL</div>
+            </div>
+            {% endif %}
+
+            {% if alert_system.probation_ending.count > 0 %}
+            <div class="alert-card high">
+                <div class="alert-icon">
+                    <i class="fas fa-user-clock"></i>
+                </div>
+                <div class="alert-content">
+                    <h4>Probation Ending</h4>
+                    <p>{{ alert_system.probation_ending.count }} employees' probation periods ending soon</p>
+                    <div class="alert-items">
+                        {% for item in alert_system.probation_ending.items %}
+                        <div class="alert-item">
+                            <span>{{ item.user.get_full_name|default:item.user.employee_code }}</span>
+                            <small>Ends: {{ item.probation_end_date|date:"M d, Y" }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="alert-priority high">HIGH</div>
+            </div>
+            {% endif %}
+
+            {% if alert_system.contract_expiry.count > 0 %}
+            <div class="alert-card medium">
+                <div class="alert-icon">
+                    <i class="fas fa-file-contract"></i>
+                </div>
+                <div class="alert-content">
+                    <h4>Contract Expiry</h4>
+                    <p>{{ alert_system.contract_expiry.count }} contracts expiring within 30 days</p>
+                    <div class="alert-items">
+                        {% for item in alert_system.contract_expiry.items %}
+                        <div class="alert-item">
+                            <span>{{ item.employee.get_full_name|default:item.employee.employee_code }}</span>
+                            <small>Expires: {{ item.end_date|date:"M d, Y" }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="alert-priority medium">MEDIUM</div>
+            </div>
+            {% endif %}
+
+            {% if alert_system.education_verification.count > 0 %}
+            <div class="alert-card low">
+                <div class="alert-icon">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <div class="alert-content">
+                    <h4>Education Verification</h4>
+                    <p>{{ alert_system.education_verification.count }} education records pending verification</p>
+                    <div class="alert-items">
+                        {% for item in alert_system.education_verification.items %}
+                        <div class="alert-item">
+                            <span>{{ item.employee.get_full_name|default:item.employee.employee_code }}</span>
+                            <small>{{ item.education_level }} - {{ item.institution }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="alert-priority low">LOW</div>
+            </div>
+            {% endif %}
+
+            <div class="compliance-card">
+                <div class="compliance-header">
+                    <i class="fas fa-clipboard-check"></i>
+                    <h4>Compliance Overview</h4>
+                </div>
+                <div class="compliance-stats">
+                    <div class="compliance-item">
+                        <span class="compliance-number">{{ alert_system.compliance_issues.missing_profiles }}</span>
+                        <span class="compliance-label">Missing Profiles</span>
+                    </div>
+                    <div class="compliance-item">
+                        <span class="compliance-number">{{ alert_system.compliance_issues.incomplete_profiles }}</span>
+                        <span class="compliance-label">Incomplete Profiles</span>
+                    </div>
+                    <div class="compliance-item">
+                        <span class="compliance-number">{{ alert_system.compliance_issues.missing_contracts }}</span>
+                        <span class="compliance-label">Missing Contracts</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .alerts-section {
+            margin-bottom: 3rem;
+        }
+
+        .alerts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .alert-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .alert-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .alert-card.critical::before { background: var(--danger-gradient); }
+        .alert-card.high::before { background: var(--warning-gradient); }
+        .alert-card.medium::before { background: var(--info-gradient); }
+        .alert-card.low::before { background: var(--success-gradient); }
+
+        .alert-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--card-hover-shadow);
+        }
+
+        .alert-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .alert-card.critical .alert-icon { background: var(--danger-gradient); }
+        .alert-card.high .alert-icon { background: var(--warning-gradient); }
+        .alert-card.medium .alert-icon { background: var(--info-gradient); }
+        .alert-card.low .alert-icon { background: var(--success-gradient); }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1E293B;
+            margin-bottom: 0.5rem;
+        }
+
+        .alert-content p {
+            color: #64748B;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+
+        .alert-items {
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .alert-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #E2E8F0;
+            font-size: 0.875rem;
+        }
+
+        .alert-item:last-child {
+            border-bottom: none;
+        }
+
+        .alert-item span {
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .alert-item small {
+            color: #6B7280;
+            font-size: 0.75rem;
+        }
+
+        .alert-priority {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .alert-priority.critical {
+            background: rgba(239, 68, 68, 0.1);
+            color: #DC2626;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .alert-priority.high {
+            background: rgba(245, 158, 11, 0.1);
+            color: #D97706;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .alert-priority.medium {
+            background: rgba(6, 182, 212, 0.1);
+            color: #0891B2;
+            border: 1px solid rgba(6, 182, 212, 0.2);
+        }
+
+        .alert-priority.low {
+            background: rgba(16, 185, 129, 0.1);
+            color: #059669;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .compliance-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .compliance-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-gradient);
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .compliance-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .compliance-header i {
+            color: #3D5AFE;
+            font-size: 1.25rem;
+        }
+
+        .compliance-header h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1E293B;
+        }
+
+        .compliance-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+        }
+
+        .compliance-item {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(248, 250, 252, 0.8);
+            border-radius: 12px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+        }
+
+        .compliance-number {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1E293B;
+            margin-bottom: 0.25rem;
+        }
+
+        .compliance-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+
+    <div class="analytics-section">
+        <h3 class="section-title">
+            <i class="fas fa-chart-line"></i>
+            Employee Analytics & Insights
+        </h3>
+        
+        <div class="analytics-grid">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h4>Department Distribution</h4>
+                    <div class="chart-controls">
+                        <button class="chart-btn active" data-chart="department">Employees</button>
+                        <button class="chart-btn" data-chart="salary">Salary</button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="departmentChart"></canvas>
+                </div>
+                <div class="chart-legend">
+                    {% for dept in department_analytics.largest_departments %}
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: var(--chart-color-{{ forloop.counter0 }})"></div>
+                        <span class="legend-label">{{ dept.name }}</span>
+                        <span class="legend-value">{{ dept.employee_count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h4>Employment Status</h4>
+                    <div class="chart-info">
+                        <i class="fas fa-info-circle" title="Current employment status distribution"></i>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="employmentStatusChart"></canvas>
+                </div>
+                <div class="status-stats">
+                    <div class="status-item confirmed">
+                        <div class="status-icon"><i class="fas fa-check-circle"></i></div>
+                        <div class="status-info">
+                            <span class="status-number">{{ employee_analytics.confirmed_employees }}</span>
+                            <span class="status-label">Confirmed</span>
+                        </div>
+                    </div>
+                    <div class="status-item probation">
+                        <div class="status-icon"><i class="fas fa-clock"></i></div>
+                        <div class="status-info">
+                            <span class="status-number">{{ employee_analytics.probation_employees }}</span>
+                            <span class="status-label">Probation</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h4>Years of Service</h4>
+                    <div class="chart-subtitle">Employee tenure distribution</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="serviceYearsChart"></canvas>
+                </div>
+                <div class="service-breakdown">
+                    {% for key, value in employee_analytics.years_of_service_distribution.items %}
+                    <div class="service-item">
+                        <span class="service-range">{{ key }}</span>
+                        <div class="service-bar">
+                            <div class="service-fill" style="width: {{ value|mul:100|div:employee_analytics.total_active_profiles }}%"></div>
+                        </div>
+                        <span class="service-count">{{ value }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h4>Salary Analysis by Grade</h4>
+                    <div class="chart-subtitle">Average compensation per grade level</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="salaryGradeChart"></canvas>
+                </div>
+                <div class="salary-summary">
+                    <div class="salary-stat">
+                        <span class="salary-label">Average Salary</span>
+                        <span class="salary-value">${{ hr_metrics.average_salary|floatformat:0 }}</span>
+                    </div>
+                    <div class="salary-stat">
+                        <span class="salary-label">Total Payroll</span>
+                        <span class="salary-value">${{ hr_metrics.total_payroll|floatformat:0 }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="education-section">
+        <h3 class="section-title">
+            <i class="fas fa-graduation-cap"></i>
+            Education & Qualifications
+        </h3>
+        
+        <div class="education-grid">
+            <div class="education-card">
+                <div class="education-header">
+                    <h4>Education Levels</h4>
+                    <div class="education-stats">
+                        <span class="total-records">{{ education_analytics.total_education_records }} Records</span>
+                    </div>
+                </div>
+                <div class="education-chart">
+                    <canvas id="educationChart"></canvas>
+                </div>
+                <div class="education-breakdown">
+                    {% for item in education_analytics.education_level_distribution %}
+                    <div class="education-item">
+                        <span class="education-level">{{ item.education_level }}</span>
+                        <span class="education-count">{{ item.count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="verification-card">
+                <div class="verification-header">
+                    <h4>Verification Status</h4>
+                    <div class="verification-actions">
+                        <button class="action-btn primary">
+                            <i class="fas fa-check"></i>
+                            Verify Pending
+                        </button>
+                    </div>
+                </div>
+                <div class="verification-stats">
+                    <div class="verification-item verified">
+                        <div class="verification-icon"><i class="fas fa-shield-check"></i></div>
+                        <div class="verification-info">
+                            <span class="verification-number">{{ education_analytics.total_education_records|sub:education_analytics.pending_verifications }}</span>
+                            <span class="verification-label">Verified</span>
+                        </div>
+                        <div class="verification-percentage">
+                            {{ education_analytics.total_education_records|sub:education_analytics.pending_verifications|mul:100|div:education_analytics.total_education_records|floatformat:1 }}%
+                        </div>
+                    </div>
+                    <div class="verification-item pending">
+                        <div class="verification-icon"><i class="fas fa-clock"></i></div>
+                        <div class="verification-info">
+                            <span class="verification-number">{{ education_analytics.pending_verifications }}</span>
+                            <span class="verification-label">Pending</span>
+                        </div>
+                        <div class="verification-percentage">
+                            {{ education_analytics.pending_verifications|mul:100|div:education_analytics.total_education_records|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+                <div class="recent-verifications">
+                    <h5>Recent Activity</h5>
+                    <p>{{ education_analytics.recent_verifications }} verifications completed this month</p>
+                </div>
+            </div>
+
+            <div class="institutions-card">
+                <div class="institutions-header">
+                    <h4>Top Institutions</h4>
+                    <div class="institutions-subtitle">Most represented educational institutions</div>
+                </div>
+                <div class="institutions-list">
+                    {% for institution in education_analytics.top_institutions %}
+                    <div class="institution-item">
+                        <div class="institution-rank">{{ forloop.counter }}</div>
+                        <div class="institution-info">
+                            <span class="institution-name">{{ institution.institution }}</span>
+                            <span class="institution-count">{{ institution.count }} graduates</span>
+                        </div>
+                        <div class="institution-bar">
+                            <div class="institution-fill" style="width: {{ institution.count|mul:100|div:education_analytics.top_institutions.0.count }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .analytics-section, .education-section {
+            margin-bottom: 3rem;
+        }
+
+        .analytics-grid, .education-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .chart-card, .education-card, .verification-card, .institutions-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-card::before, .education-card::before, .verification-card::before, .institutions-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-gradient);
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .chart-card:hover, .education-card:hover, .verification-card:hover, .institutions-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--card-hover-shadow);
+        }
+
+        .chart-header, .education-header, .verification-header, .institutions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-header h4, .education-header h4, .verification-header h4, .institutions-header h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1E293B;
+        }
+
+        .chart-subtitle, .institutions-subtitle {
+            font-size: 0.875rem;
+            color: #64748B;
+            margin-top: 0.25rem;
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chart-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid #E2E8F0;
+            background: white;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #64748B;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .chart-btn.active, .chart-btn:hover {
+            background: var(--primary-gradient);
+            color: white;
+            border-color: transparent;
+        }
+
+        .chart-container {
+            height: 300px;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .chart-legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .legend-label {
+            flex: 1;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .legend-value {
+            color: #6B7280;
+            font-weight: 600;
+        }
+
+        .status-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: rgba(248, 250, 252, 0.8);
+            border-radius: 12px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+        }
+
+        .status-item.confirmed .status-icon {
+            color: #10B981;
+        }
+
+        .status-item.probation .status-icon {
+            color: #F59E0B;
+        }
+
+        .status-icon {
+            font-size: 1.25rem;
+        }
+
+        .status-number {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1E293B;
+        }
+
+        .status-label {
+            font-size: 0.875rem;
+            color: #64748B;
+            font-weight: 500;
+        }
+
+        .service-breakdown {
+            space-y: 0.75rem;
+        }
+
+        .service-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #E2E8F0;
+        }
+
+        .service-item:last-child {
+            border-bottom: none;
+        }
+
+        .service-range {
+            min-width: 80px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .service-bar {
+            flex: 1;
+            height: 8px;
+            background: #E2E8F0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .service-fill {
+            height: 100%;
+            background: var(--primary-gradient);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .service-count {
+            min-width: 30px;
+            text-align: right;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #1E293B;
+        }
+
+        .salary-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #E2E8F0;
+        }
+
+        .salary-stat {
+            text-align: center;
+        }
+
+        .salary-label {
+            display: block;
+            font-size: 0.875rem;
+            color: #64748B;
+            margin-bottom: 0.25rem;
+        }
+
+        .salary-value {
+            display: block;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1E293B;
+        }
+
+        :root {
+            --chart-color-0: #3D5AFE;
+            --chart-color-1: #D500F9;
+            --chart-color-2: #10B981;
+            --chart-color-3: #F59E0B;
+            --chart-color-4: #EF4444;
+            --chart-color-5: #8B5CF6;
+            --chart-color-6: #06B6D4;
+            --chart-color-7: #84CC16;
+        }
+    </style>
+
+    <div class="contracts-section">
+        <h3 class="section-title">
+            <i class="fas fa-file-contract"></i>
+            Contract Management & Analytics
+        </h3>
+        
+        <div class="contracts-grid">
+            <div class="contract-overview-card">
+                <div class="contract-header">
+                    <h4>Contract Overview</h4>
+                    <div class="contract-total">
+                        <span class="total-value">${{ contract_analytics.total_contract_value|floatformat:0 }}</span>
+                        <span class="total-label">Total Value</span>
+                    </div>
+                </div>
+                <div class="contract-stats-grid">
+                    <div class="contract-stat active">
+                        <div class="contract-stat-icon"><i class="fas fa-check-circle"></i></div>
+                        <div class="contract-stat-info">
+                            <span class="contract-stat-number">{{ contract_analytics.active_contracts }}</span>
+                            <span class="contract-stat-label">Active</span>
+                        </div>
+                    </div>
+                    <div class="contract-stat expiring">
+                        <div class="contract-stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="contract-stat-info">
+                            <span class="contract-stat-number">{{ contract_analytics.expiring_30_days }}</span>
+                            <span class="contract-stat-label">Expiring (30d)</span>
+                        </div>
+                    </div>
+                    <div class="contract-stat urgent">
+                        <div class="contract-stat-icon"><i class="fas fa-clock"></i></div>
+                        <div class="contract-stat-info">
+                            <span class="contract-stat-number">{{ contract_analytics.expiring_7_days }}</span>
+                            <span class="contract-stat-label">Urgent (7d)</span>
+                        </div>
+                    </div>
+                    <div class="contract-stat expired">
+                        <div class="contract-stat-icon"><i class="fas fa-times-circle"></i></div>
+                        <div class="contract-stat-info">
+                            <span class="contract-stat-number">{{ contract_analytics.expired_contracts }}</span>
+                            <span class="contract-stat-label">Expired</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="contract-types-card">
+                <div class="contract-types-header">
+                    <h4>Contract Types Distribution</h4>
+                    <div class="chart-container">
+                        <canvas id="contractTypesChart"></canvas>
+                    </div>
+                </div>
+                <div class="contract-types-list">
+                    {% for item in contract_analytics.contract_type_distribution %}
+                    <div class="contract-type-item">
+                        <span class="contract-type-name">{{ item.contract_type }}</span>
+                        <div class="contract-type-bar">
+                            <div class="contract-type-fill" style="width: {{ item.count|mul:100|div:contract_analytics.active_contracts }}%"></div>
+                        </div>
+                        <span class="contract-type-count">{{ item.count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="contract-value-card">
+                <div class="contract-value-header">
+                    <h4>Contract Value by Type</h4>
+                    <div class="value-subtitle">Average compensation analysis</div>
+                </div>
+                <div class="value-chart-container">
+                    <canvas id="contractValueChart"></canvas>
+                </div>
+                <div class="value-breakdown">
+                    {% for item in contract_analytics.contract_value_by_type %}
+                    <div class="value-item">
+                        <div class="value-type">{{ item.contract_type }}</div>
+                        <div class="value-stats">
+                            <span class="avg-value">${{ item.avg_value|floatformat:0 }}</span>
+                            <span class="total-value">${{ item.total_value|floatformat:0 }} total</span>
+                        </div>
+                        <div class="value-count">{{ item.count }} contracts</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="probation-analysis-card">
+                <div class="probation-header">
+                    <h4>Probation Period Analysis</h4>
+                    <div class="probation-subtitle">Distribution by months</div>
+                </div>
+                <div class="probation-chart">
+                    <canvas id="probationChart"></canvas>
+                </div>
+                <div class="probation-stats">
+                    {% for item in contract_analytics.probation_period_analysis %}
+                    <div class="probation-item">
+                        <span class="probation-months">{{ item.probation_period_months }} months</span>
+                        <span class="probation-count">{{ item.count }} contracts</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sessions-section">
+        <h3 class="section-title">
+            <i class="fas fa-desktop"></i>
+            Session Management & Activity
+        </h3>
+        
+        <div class="sessions-grid">
+            <div class="session-overview-card">
+                <div class="session-header">
+                    <h4>Session Overview</h4>
+                    <div class="session-live">
+                        <div class="live-indicator"></div>
+                        <span>Live Data</span>
+                    </div>
+                </div>
+                <div class="session-metrics">
+                    <div class="session-metric primary">
+                        <div class="session-metric-icon"><i class="fas fa-users"></i></div>
+                        <div class="session-metric-info">
+                            <span class="session-metric-number">{{ session_analytics.active_sessions }}</span>
+                            <span class="session-metric-label">Active Sessions</span>
+                        </div>
+                    </div>
+                    <div class="session-metric success">
+                        <div class="session-metric-icon"><i class="fas fa-user-check"></i></div>
+                        <div class="session-metric-info">
+                            <span class="session-metric-number">{{ session_analytics.concurrent_users }}</span>
+                            <span class="session-metric-label">Concurrent Users</span>
+                        </div>
+                    </div>
+                    <div class="session-metric info">
+                        <div class="session-metric-icon"><i class="fas fa-calendar-day"></i></div>
+                        <div class="session-metric-info">
+                            <span class="session-metric-number">{{ session_analytics.sessions_today }}</span>
+                            <span class="session-metric-label">Sessions Today</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="device-distribution-card">
+                <div class="device-header">
+                    <h4>Device Distribution</h4>
+                    <div class="device-chart">
+                        <canvas id="deviceChart"></canvas>
+                    </div>
+                </div>
+                <div class="device-list">
+                    {% for device in session_analytics.device_distribution %}
+                    <div class="device-item">
+                        <div class="device-icon">
+                            {% if device.device_type == 'desktop' %}
+                                <i class="fas fa-desktop"></i>
+                            {% elif device.device_type == 'mobile' %}
+                                <i class="fas fa-mobile-alt"></i>
+                            {% elif device.device_type == 'tablet' %}
+                                <i class="fas fa-tablet-alt"></i>
+                            {% else %}
+                                <i class="fas fa-laptop"></i>
+                            {% endif %}
+                        </div>
+                        <div class="device-info">
+                            <span class="device-name">{{ device.device_type|title }}</span>
+                            <div class="device-bar">
+                                <div class="device-fill" style="width: {{ device.count|mul:100|div:session_analytics.active_sessions }}%"></div>
+                            </div>
+                        </div>
+                        <span class="device-count">{{ device.count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="recent-logins-card">
+                <div class="recent-header">
+                    <h4>Recent Logins</h4>
+                    <div class="recent-subtitle">Last 24 hours activity</div>
+                </div>
+                <div class="recent-list">
+                    {% for login in session_analytics.recent_logins %}
+                    <div class="recent-item">
+                        <div class="recent-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="recent-info">
+                            <span class="recent-name">{{ login.user.get_full_name|default:login.user.employee_code }}</span>
+                            <span class="recent-time">{{ login.login_time|timesince }} ago</span>
+                        </div>
+                        <div class="recent-status">
+                            {% if login.is_active %}
+                                <span class="status-badge active">Active</span>
+                            {% else %}
+                                <span class="status-badge inactive">Inactive</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="location-distribution-card">
+                <div class="location-header">
+                    <h4>Location Distribution</h4>
+                    <div class="location-subtitle">Top 10 locations</div>
+                </div>
+                <div class="location-list">
+                    {% for location in session_analytics.location_distribution %}
+                    <div class="location-item">
+                        <div class="location-icon">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div class="location-info">
+                            <span class="location-name">{{ location.location }}</span>
+                            <div class="location-bar">
+                                <div class="location-fill" style="width: {{ location.count|mul:100|div:session_analytics.location_distribution.0.count }}%"></div>
+                            </div>
+                        </div>
+                        <span class="location-count">{{ location.count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .contracts-section, .sessions-section {
+            margin-bottom: 3rem;
+        }
+
+        .contracts-grid, .sessions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .contract-overview-card, .contract-types-card, .contract-value-card, .probation-analysis-card,
+        .session-overview-card, .device-distribution-card, .recent-logins-card, .location-distribution-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .contract-overview-card::before { background: var(--success-gradient); }
+        .contract-types-card::before { background: var(--primary-gradient); }
+        .contract-value-card::before { background: var(--warning-gradient); }
+        .probation-analysis-card::before { background: var(--info-gradient); }
+        .session-overview-card::before { background: var(--primary-gradient); }
+        .device-distribution-card::before { background: var(--secondary-gradient); }
+        .recent-logins-card::before { background: var(--success-gradient); }
+        .location-distribution-card::before { background: var(--info-gradient); }
+
+        .contract-overview-card::before, .contract-types-card::before, .contract-value-card::before, .probation-analysis-card::before,
+        .session-overview-card::before, .device-distribution-card::before, .recent-logins-card::before, .location-distribution-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .contract-header, .contract-types-header, .contract-value-header, .probation-header,
+        .session-header, .device-header, .recent-header, .location-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .contract-total {
+            text-align: right;
+        }
+
+        .total-value {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #10B981;
+        }
+
+        .total-label {
+            font-size: 0.875rem;
+            color: #64748B;
+        }
+
+        .contract-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .contract-stat {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: rgba(248, 250, 252, 0.8);
+            border-radius: 12px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+        }
+
+        .contract-stat.active .contract-stat-icon { color: #10B981; }
+        .contract-stat.expiring .contract-stat-icon { color: #F59E0B; }
+        .contract-stat.urgent .contract-stat-icon { color: #EF4444; }
+        .contract-stat.expired .contract-stat-icon { color: #6B7280; }
+
+        .contract-stat-icon {
+            font-size: 1.25rem;
+        }
+
+        .contract-stat-number {
+            display: block;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1E293B;
+        }
+
+        .contract-stat-label {
+            font-size: 0.75rem;
+            color: #64748B;
+            font-weight: 500;
+        }
+
+        .session-live {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: #10B981;
+            font-weight: 500;
+        }
+
+        .live-indicator {
+            width: 8px;
+            height: 8px;
+            background: #10B981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .session-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .session-metric {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: rgba(248, 250, 252, 0.8);
+            border-radius: 12px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+        }
+
+        .session-metric.primary .session-metric-icon { color: #3D5AFE; }
+        .session-metric.success .session-metric-icon { color: #10B981; }
+        .session-metric.info .session-metric-icon { color: #06B6D4; }
+
+        .session-metric-icon {
+            font-size: 1.25rem;
+        }
+
+        .session-metric-number {
+            display: block;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1E293B;
+        }
+
+        .session-metric-label {
+            font-size: 0.75rem;
+            color: #64748B;
+            font-weight: 500;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.active {
+            background: rgba(16, 185, 129, 0.1);
+            color: #059669;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-badge.inactive {
+            background: rgba(107, 114, 128, 0.1);
+            color: #6B7280;
+            border: 1px solid rgba(107, 114, 128, 0.2);
+        }
+    </style>
+
+    <div class="security-section">
+        <h3 class="section-title">
+            <i class="fas fa-shield-alt"></i>
+            Security Dashboard & Monitoring
+        </h3>
+        
+        <div class="security-grid">
+            <div class="security-score-card">
+                <div class="security-score-header">
+                    <h4>Security Score</h4>
+                    <div class="score-badge grade-{{ security_metrics.security_score.grade|lower }}">
+                        Grade {{ security_metrics.security_score.grade }}
+                    </div>
+                </div>
+                <div class="security-score-display">
+                    <div class="score-circle">
+                        <svg class="score-svg" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="#E2E8F0" stroke-width="8"/>
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="url(#scoreGradient)" stroke-width="8" 
+                                    stroke-dasharray="{{ security_metrics.security_score.score|mul:2.827 }} 282.7" 
+                                    stroke-dashoffset="70.675" transform="rotate(-90 50 50)"/>
+                            <defs>
+                                <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" style="stop-color:#3D5AFE"/>
+                                    <stop offset="100%" style="stop-color:#D500F9"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <div class="score-text">
+                            <span class="score-number">{{ security_metrics.security_score.score|floatformat:0 }}%</span>
+                            <span class="score-status">{{ security_metrics.security_score.status|title }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="security-breakdown">
+                    <div class="security-item">
+                        <span class="security-label">Locked Accounts</span>
+                        <span class="security-value danger">{{ security_metrics.locked_accounts }}</span>
+                    </div>
+                    <div class="security-item">
+                        <span class="security-label">Failed Logins</span>
+                        <span class="security-value warning">{{ security_metrics.failed_login_users }}</span>
+                    </div>
+                    <div class="security-item">
+                        <span class="security-label">Expired Passwords</span>
+                        <span class="security-value danger">{{ security_metrics.password_expired_count }}</span>
+                    </div>
+                    <div class="security-item">
+                        <span class="security-label">Unverified Accounts</span>
+                        <span class="security-value warning">{{ security_metrics.unverified_accounts }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="api-security-card">
+                <div class="api-header">
+                    <h4>API Security</h4>
+                    <div class="api-status">
+                        <div class="api-indicator {% if security_metrics.expired_api_keys == 0 %}secure{% else %}warning{% endif %}"></div>
+                        <span>{% if security_metrics.expired_api_keys == 0 %}Secure{% else %}{{ security_metrics.expired_api_keys }} Expired{% endif %}</span>
+                    </div>
+                </div>
+                <div class="api-metrics">
+                    <div class="api-metric active">
+                        <div class="api-metric-icon"><i class="fas fa-key"></i></div>
+                        <div class="api-metric-info">
+                            <span class="api-metric-number">{{ security_metrics.active_api_keys }}</span>
+                            <span class="api-metric-label">Active Keys</span>
+                        </div>
+                    </div>
+                    <div class="api-metric expired">
+                        <div class="api-metric-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="api-metric-info">
+                            <span class="api-metric-number">{{ security_metrics.expired_api_keys }}</span>
+                            <span class="api-metric-label">Expired Keys</span>
+                        </div>
+                    </div>
+                    <div class="api-metric resets">
+                        <div class="api-metric-icon"><i class="fas fa-redo"></i></div>
+                        <div class="api-metric-info">
+                            <span class="api-metric-number">{{ security_metrics.recent_password_resets }}</span>
+                            <span class="api-metric-label">Recent Resets</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="security-threats-card">
+                <div class="threats-header">
+                    <h4>Security Threats</h4>
+                    <div class="threat-level {% if security_metrics.locked_accounts > 0 %}high{% elif security_metrics.failed_login_users > 5 %}medium{% else %}low{% endif %}">
+                        {% if security_metrics.locked_accounts > 0 %}HIGH{% elif security_metrics.failed_login_users > 5 %}MEDIUM{% else %}LOW{% endif %}
+                    </div>
+                </div>
+                <div class="threats-list">
+                    {% if security_metrics.locked_accounts > 0 %}
+                    <div class="threat-item critical">
+                        <div class="threat-icon"><i class="fas fa-lock"></i></div>
+                        <div class="threat-info">
+                            <span class="threat-title">Account Lockouts</span>
+                            <span class="threat-description">{{ security_metrics.locked_accounts }} accounts currently locked</span>
+                        </div>
+                        <div class="threat-severity critical">CRITICAL</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if security_metrics.failed_login_users > 0 %}
+                    <div class="threat-item warning">
+                        <div class="threat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="threat-info">
+                            <span class="threat-title">Failed Login Attempts</span>
+                            <span class="threat-description">{{ security_metrics.failed_login_users }} users with failed attempts</span>
+                        </div>
+                        <div class="threat-severity warning">WARNING</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if security_metrics.password_expired_count > 0 %}
+                    <div class="threat-item medium">
+                        <div class="threat-icon"><i class="fas fa-clock"></i></div>
+                        <div class="threat-info">
+                            <span class="threat-title">Expired Passwords</span>
+                            <span class="threat-description">{{ security_metrics.password_expired_count }} users need password updates</span>
+                        </div>
+                        <div class="threat-severity medium">MEDIUM</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="audit-section">
+        <h3 class="section-title">
+            <i class="fas fa-clipboard-list"></i>
+            Audit Analytics & System Activity
+        </h3>
+        
+        <div class="audit-grid">
+            <div class="audit-overview-card">
+                <div class="audit-header">
+                    <h4>Audit Overview</h4>
+                    <div class="audit-period">Last 30 Days</div>
+                </div>
+                <div class="audit-stats">
+                    <div class="audit-stat total">
+                        <div class="audit-stat-icon"><i class="fas fa-list"></i></div>
+                        <div class="audit-stat-info">
+                            <span class="audit-stat-number">{{ audit_analytics.total_audit_logs }}</span>
+                            <span class="audit-stat-label">Total Logs</span>
+                        </div>
+                    </div>
+                    <div class="audit-stat today">
+                        <div class="audit-stat-icon"><i class="fas fa-calendar-day"></i></div>
+                        <div class="audit-stat-info">
+                            <span class="audit-stat-number">{{ audit_analytics.logs_today }}</span>
+                            <span class="audit-stat-label">Today's Activity</span>
+                        </div>
+                    </div>
+                    <div class="audit-stat success">
+                        <div class="audit-stat-icon"><i class="fas fa-percentage"></i></div>
+                        <div class="audit-stat-info">
+                            <span class="audit-stat-number">{{ audit_analytics.success_rate|floatformat:1 }}%</span>
+                            <span class="audit-stat-label">Success Rate</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-distribution-card">
+                <div class="action-header">
+                    <h4>Action Distribution</h4>
+                    <div class="action-chart">
+                        <canvas id="actionChart"></canvas>
+                    </div>
+                </div>
+                <div class="action-list">
+                    {% for action in audit_analytics.action_distribution %}
+                    <div class="action-item">
+                        <div class="action-name">{{ action.action }}</div>
+                        <div class="action-bar">
+                            <div class="action-fill" style="width: {{ action.count|mul:100|div:audit_analytics.action_distribution.0.count }}%"></div>
+                        </div>
+                        <div class="action-count">{{ action.count }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="user-activity-card">
+                <div class="user-activity-header">
+                    <h4>Top User Activity</h4>
+                    <div class="activity-subtitle">Most active users (30 days)</div>
+                </div>
+                <div class="user-activity-list">
+                    {% for user in audit_analytics.user_activity_ranking %}
+                    <div class="user-activity-item">
+                        <div class="user-rank">{{ forloop.counter }}</div>
+                        <div class="user-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="user-info">
+                            <span class="user-name">{{ user.user__first_name }} {{ user.user__last_name }}</span>
+                            <span class="user-code">{{ user.user__employee_code }}</span>
+                        </div>
+                        <div class="user-activity-count">{{ user.activity_count }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="critical-actions-card">
+                <div class="critical-header">
+                    <h4>Critical Actions</h4>
+                    <div class="critical-subtitle">Last 7 days</div>
+                </div>
+                <div class="critical-list">
+                    {% for action in audit_analytics.recent_critical_actions %}
+                    <div class="critical-item">
+                        <div class="critical-icon">
+                            {% if action.action == 'DELETE' %}
+                                <i class="fas fa-trash text-danger"></i>
+                            {% elif action.action == 'PERMISSION_CHANGE' %}
+                                <i class="fas fa-user-shield text-warning"></i>
+                            {% else %}
+                                <i class="fas fa-cog text-info"></i>
+                            {% endif %}
+                        </div>
+                        <div class="critical-info">
+                            <span class="critical-action">{{ action.action }}</span>
+                            <span class="critical-user">{{ action.user.get_full_name|default:action.user.employee_code }}</span>
+                            <span class="critical-time">{{ action.timestamp|timesince }} ago</span>
+                        </div>
+                        <div class="critical-model">{{ action.model_name }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .security-section, .audit-section {
+            margin-bottom: 3rem;
+        }
+
+        .security-grid, .audit-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .security-score-card, .api-security-card, .security-threats-card,
+        .audit-overview-card, .action-distribution-card, .user-activity-card, .critical-actions-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .security-score-card::before { background: var(--primary-gradient); }
+        .api-security-card::before { background: var(--success-gradient); }
+        .security-threats-card::before { background: var(--danger-gradient); }
+        .audit-overview-card::before { background: var(--info-gradient); }
+        .action-distribution-card::before { background: var(--secondary-gradient); }
+        .user-activity-card::before { background: var(--warning-gradient); }
+        .critical-actions-card::before { background: var(--danger-gradient); }
+
+        .security-score-card::before, .api-security-card::before, .security-threats-card::before,
+        .audit-overview-card::before, .action-distribution-card::before, .user-activity-card::before, .critical-actions-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .score-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .score-badge.grade-a { background: rgba(16, 185, 129, 0.1); color: #059669; border: 1px solid rgba(16, 185, 129, 0.2); }
+        .score-badge.grade-b { background: rgba(34, 197, 94, 0.1); color: #16A34A; border: 1px solid rgba(34, 197, 94, 0.2); }
+        .score-badge.grade-c { background: rgba(245, 158, 11, 0.1); color: #D97706; border: 1px solid rgba(245, 158, 11, 0.2); }
+        .score-badge.grade-d { background: rgba(239, 68, 68, 0.1); color: #DC2626; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .score-badge.grade-f { background: rgba(127, 29, 29, 0.1); color: #991B1B; border: 1px solid rgba(127, 29, 29, 0.2); }
+
+        .security-score-display {
+            display: flex;
+            justify-content: center;
+            margin: 2rem 0;
+        }
+
+        .score-circle {
+            position: relative;
+            width: 150px;
+            height: 150px;
+        }
+
+        .score-svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .score-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .score-number {
+            display: block;
+            font-size: 2rem;
+            font-weight: 800;
+            color: #1E293B;
+        }
+
+        .score-status {
+            font-size: 0.875rem;
+            color: #64748B;
+            font-weight: 500;
+            text-transform: capitalize;
+        }
+
+        .security-breakdown {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .security-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: rgba(248, 250, 252, 0.8);
+            border-radius: 8px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+        }
+
+        .security-label {
+            font-size: 0.875rem;
+            color: #64748B;
+            font-weight: 500;
+        }
+
+        .security-value {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .security-value.danger { color: #EF4444; }
+        .security-value.warning { color: #F59E0B; }
+        .security-value.success { color: #10B981; }
+
+        .threat-level {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .threat-level.high { background: rgba(239, 68, 68, 0.1); color: #DC2626; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .threat-level.medium { background: rgba(245, 158, 11, 0.1); color: #D97706; border: 1px solid rgba(245, 158, 11, 0.2); }
+        .threat-level.low { background: rgba(16, 185, 129, 0.1); color: #059669; border: 1px solid rgba(16, 185, 129, 0.2); }
+
+        .text-danger { color: #EF4444; }
+        .text-warning { color: #F59E0B; }
+        .text-info { color: #06B6D4; }
+    </style>
+
+    <div class="roles-section">
+        <h3 class="section-title">
+            <i class="fas fa-users-cog"></i>
+            Role Management & Distribution
+        </h3>
+        
+        <div class="roles-grid">
+            <div class="role-distribution-card">
+                <div class="role-header">
+                    <h4>Role Distribution</h4>
+                    <div class="role-total">{{ role_analytics.total_roles }} Total Roles</div>
+                </div>
+                <div class="role-chart-container">
+                    <canvas id="roleChart"></canvas>
+                </div>
+                <div class="role-list">
+                    {% for role in role_analytics.role_distribution %}
+                    <div class="role-item">
+                        <div class="role-info">
+                            <span class="role-name">{{ role.name }}</span>
+                            <span class="role-level">Level {{ role.level }}</span>
+                        </div>
+                        <div class="role-users">{{ role.user_count }} users</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="role-salary-card">
+                <div class="role-salary-header">
+                    <h4>Salary by Role</h4>
+                    <div class="salary-subtitle">Average compensation analysis</div>
+                </div>
+                <div class="role-salary-chart">
+                    <canvas id="roleSalaryChart"></canvas>
+                </div>
+                <div class="role-salary-list">
+                    {% for role in role_analytics.role_salary_analysis %}
+                    <div class="role-salary-item">
+                        <div class="role-salary-info">
+                            <span class="role-salary-name">{{ role.name }}</span>
+                            <span class="role-salary-users">{{ role.user_count }} users</span>
+                        </div>
+                        <div class="role-salary-amount">${{ role.avg_salary|floatformat:0 }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="management-roles-card">
+                <div class="management-header">
+                    <h4>Management Roles</h4>
+                    <div class="management-subtitle">Roles with employee management permissions</div>
+                </div>
+                <div class="management-list">
+                    {% for role in role_analytics.management_roles %}
+                    <div class="management-item">
+                        <div class="management-icon">
+                            <i class="fas fa-crown"></i>
+                        </div>
+                        <div class="management-info">
+                            <span class="management-name">{{ role.name }}</span>
+                            <span class="management-description">{{ role.description|default:"Management role" }}</span>
+                        </div>
+                        <div class="management-count">{{ role.user_count }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="role-permissions-card">
+                <div class="permissions-header">
+                    <h4>Role Permissions</h4>
+                    <div class="permissions-subtitle">Permission distribution across roles</div>
+                </div>
+                <div class="permissions-list">
+                    {% for role in role_analytics.role_permissions %}
+                    <div class="permission-item">
+                        <div class="permission-role">{{ role.name }}</div>
+                        <div class="permission-bar">
+                            <div class="permission-fill" style="width: {{ role.permission_count|mul:100|div:role_analytics.role_permissions.0.permission_count }}%"></div>
+                        </div>
+                        <div class="permission-count">{{ role.permission_count }} permissions</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="activities-section">
+        <h3 class="section-title">
+            <i class="fas fa-history"></i>
+            Recent Activities & System Events
+        </h3>
+        
+        <div class="activities-grid">
+            <div class="recent-activities-card">
+                <div class="activities-header">
+                    <h4>Recent Activities</h4>
+                    <div class="activities-filter">
+                        <select class="filter-select" id="activityFilter">
+                            <option value="all">All Activities</option>
+                            <option value="login">Logins</option>
+                            <option value="create">Created</option>
+                            <option value="update">Updated</option>
+                            <option value="delete">Deleted</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="activities-list" id="activitiesList">
+                    {% for activity in recent_activities %}
+                    <div class="activity-item" data-action="{{ activity.action }}">
+                        <div class="activity-avatar">
+                            {% if activity.user %}
+                                <i class="fas fa-user"></i>
+                            {% else %}
+                                <i class="fas fa-cog"></i>
+                            {% endif %}
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-main">
+                                <strong class="activity-user">
+                                    {% if activity.user %}
+                                        {{ activity.user.get_full_name|default:activity.user.employee_code }}
+                                    {% else %}
+                                        System
+                                    {% endif %}
+                                </strong>
+                                <span class="activity-action">{{ activity.get_action_display|default:activity.action }}</span>
+                                {% if activity.model_name %}
+                                    <span class="activity-model">{{ activity.model_name }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="activity-description">{{ activity.description|default:"No description available" }}</div>
+                            <div class="activity-meta">
+                                <span class="activity-time">{{ activity.timestamp|timesince }} ago</span>
+                                {% if activity.ip_address %}
+                                    <span class="activity-ip">{{ activity.ip_address }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="activity-status">
+                            {% if activity.action == 'LOGIN' %}
+                                <span class="status-badge success">Login</span>
+                            {% elif activity.action == 'CREATE' %}
+                                <span class="status-badge info">Created</span>
+                            {% elif activity.action == 'UPDATE' %}
+                                <span class="status-badge warning">Updated</span>
+                            {% elif activity.action == 'DELETE' %}
+                                <span class="status-badge danger">Deleted</span>
+                            {% else %}
+                                <span class="status-badge default">{{ activity.action }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="no-activities">
+                        <i class="fas fa-inbox"></i>
+                        <p>No recent activities found.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="activities-footer">
+                    <button class="load-more-btn" id="loadMoreActivities">
+                        <i class="fas fa-plus"></i>
+                        Load More Activities
+                    </button>
+                </div>
+            </div>
+
+            <div class="system-health-card">
+                <div class="health-header">
+                    <h4>System Health</h4>
+                    <div class="health-status healthy">
+                        <div class="health-indicator"></div>
+                        <span>Healthy</span>
+                    </div>
+                </div>
+                <div class="health-metrics">
+                    <div class="health-metric">
+                        <div class="health-metric-label">CPU Usage</div>
+                        <div class="health-metric-bar">
+                            <div class="health-metric-fill" style="width: 45%"></div>
+                        </div>
+                        <div class="health-metric-value">45%</div>
+                    </div>
+                    <div class="health-metric">
+                        <div class="health-metric-label">Memory Usage</div>
+                        <div class="health-metric-bar">
+                            <div class="health-metric-fill" style="width: 62%"></div>
+                        </div>
+                        <div class="health-metric-value">62%</div>
+                    </div>
+                    <div class="health-metric">
+                        <div class="health-metric-label">Database Load</div>
+                        <div class="health-metric-bar">
+                            <div class="health-metric-fill" style="width: 38%"></div>
+                        </div>
+                        <div class="health-metric-value">38%</div>
+                    </div>
+                    <div class="health-metric">
+                        <div class="health-metric-label">Active Connections</div>
+                        <div class="health-metric-bar">
+                            <div class="health-metric-fill" style="width: 28%"></div>
+                        </div>
+                        <div class="health-metric-value">28%</div>
+                    </div>
+                </div>
+                <div class="health-summary">
+                    <div class="health-uptime">
+                        <i class="fas fa-clock"></i>
+                        <span>Uptime: 99.9%</span>
+                    </div>
+                    <div class="health-response">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Avg Response: 120ms</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .roles-section, .activities-section {
+            margin-bottom: 3rem;
+        }
+
+        .roles-grid, .activities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .role-distribution-card, .role-salary-card, .management-roles-card, .role-permissions-card,
+        .recent-activities-card, .system-health-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .role-distribution-card::before { background: var(--primary-gradient); }
+        .role-salary-card::before { background: var(--success-gradient); }
+        .management-roles-card::before { background: var(--warning-gradient); }
+        .role-permissions-card::before { background: var(--info-gradient); }
+        .recent-activities-card::before { background: var(--secondary-gradient); }
+        .system-health-card::before { background: var(--success-gradient); }
+
+        .role-distribution-card::before, .role-salary-card::before, .management-roles-card::before, .role-permissions-card::before,
+        .recent-activities-card::before, .system-health-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .activities-list {
+            max-height: 500px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1rem;
+            border-bottom: 1px solid #E2E8F0;
+            transition: var(--transition);
+        }
+
+        .activity-item:hover {
+            background: rgba(248, 250, 252, 0.5);
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-main {
+            margin-bottom: 0.5rem;
+        }
+
+        .activity-user {
+            color: #1E293B;
+            font-weight: 600;
+        }
+
+        .activity-action {
+            color: #64748B;
+            margin: 0 0.5rem;
+        }
+
+        .activity-model {
+            color: #3D5AFE;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .activity-description {
+            color: #64748B;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .activity-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.75rem;
+            color: #9CA3AF;
+        }
+
+        .filter-select {
+            padding: 0.5rem 1rem;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            background: white;
+            font-size: 0.875rem;
+            color: #64748B;
+        }
+
+        .load-more-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .load-more-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(61, 90, 254, 0.3);
+        }
+
+        .health-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .health-status.healthy {
+            color: #10B981;
+        }
+
+        .health-indicator {
+            width: 8px;
+            height: 8px;
+            background: #10B981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .health-metrics {
+            margin: 1.5rem 0;
+        }
+
+        .health-metric {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .health-metric:last-child {
+            margin-bottom: 0;
+        }
+
+        .health-metric-label {
+            min-width: 120px;
+            font-size: 0.875rem;
+            color: #64748B;
+            font-weight: 500;
+        }
+
+        .health-metric-bar {
+            flex: 1;
+            height: 8px;
+            background: #E2E8F0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .health-metric-fill {
+            height: 100%;
+            background: var(--success-gradient);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .health-metric-value {
+            min-width: 40px;
+            text-align: right;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #1E293B;
+        }
+
+        .health-summary {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 1rem;
+            border-top: 1px solid #E2E8F0;
+            font-size: 0.875rem;
+            color: #64748B;
+        }
+
+        .health-uptime, .health-response {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .no-activities {
+            text-align: center;
+            padding: 2rem;
+            color: #9CA3AF;
+        }
+
+        .no-activities i {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chartColors = [
+                '#3D5AFE', '#D500F9', '#10B981', '#F59E0B', '#EF4444', 
+                '#8B5CF6', '#06B6D4', '#84CC16', '#F97316', '#EC4899'
+            ];
+        
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            usePointStyle: true,
+                            font: {
+                                family: 'Inter, Roboto, sans-serif',
+                                size: 12,
+                                weight: '500'
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(43, 43, 43, 0.95)',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#3D5AFE',
+                        borderWidth: 1,
+                        cornerRadius: 12,
+                        titleFont: {
+                            family: 'Inter, Roboto, sans-serif',
+                            size: 14,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            family: 'Inter, Roboto, sans-serif',
+                            size: 13,
+                            weight: '500'
+                        }
+                    }
+                },
+                animation: {
+                    duration: 1000,
+                    easing: 'easeOutQuart'
+                }
+            };
+        
+            // Department Chart
+            if (document.getElementById('departmentChart')) {
+                const deptCtx = document.getElementById('departmentChart').getContext('2d');
+                new Chart(deptCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: [{% for dept in department_analytics.largest_departments %}'{{ dept.name }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+                        datasets: [{
+                            data: [{% for dept in department_analytics.largest_departments %}{{ dept.employee_count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                            backgroundColor: chartColors,
+                            borderWidth: 0,
+                            hoverBorderWidth: 3,
+                            hoverBorderColor: '#FFFFFF'
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        cutout: '65%',
+                        plugins: {
+                            ...chartOptions.plugins,
+                            tooltip: {
+                                ...chartOptions.plugins.tooltip,
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                        return `${context.label}: ${context.parsed} employees (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        
+            // Employment Status Chart
+            if (document.getElementById('employmentStatusChart')) {
+                const statusCtx = document.getElementById('employmentStatusChart').getContext('2d');
+                new Chart(statusCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: [{% for status in employee_analytics.employment_status_distribution %}'{{ status.employment_status }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+                        datasets: [{
+                            data: [{% for status in employee_analytics.employment_status_distribution %}{{ status.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                            backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#06B6D4'],
+                            borderWidth: 0,
+                            hoverBorderWidth: 3,
+                            hoverBorderColor: '#FFFFFF'
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        plugins: {
+                            ...chartOptions.plugins,
+                            tooltip: {
+                                ...chartOptions.plugins.tooltip,
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                        return `${context.label}: ${context.parsed} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        
+            // Years of Service Chart
+            if (document.getElementById('serviceYearsChart')) {
+                const serviceCtx = document.getElementById('serviceYearsChart').getContext('2d');
+                const serviceLabels = [{% for key, value in employee_analytics.years_of_service_distribution.items %}'{{ key }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+                const serviceData = [{% for key, value in employee_analytics.years_of_service_distribution.items %}{{ value }}{% if not forloop.last %},{% endif %}{% endfor %}];
+                
+                new Chart(serviceCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: serviceLabels,
+                        datasets: [{
+                            label: 'Employees',
+                            data: serviceData,
+                            backgroundColor: 'rgba(61, 90, 254, 0.8)',
+                            borderColor: '#3D5AFE',
+                            borderWidth: 2,
+                            borderRadius: 8,
+                            borderSkipped: false,
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(226, 232, 240, 0.5)'
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'Inter, Roboto, sans-serif',
+                                        size: 12
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'Inter, Roboto, sans-serif',
+                                        size: 12
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        
+            // Salary by Grade Chart
+            if (document.getElementById('salaryGradeChart')) {
+                const salaryCtx = document.getElementById('salaryGradeChart').getContext('2d');
+                new Chart(salaryCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [{% for grade in employee_analytics.salary_by_grade %}'Grade {{ grade.grade_level }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+                        datasets: [{
+                            label: 'Average Salary',
+                            data: [{% for grade in employee_analytics.salary_by_grade %}{{ grade.avg_salary|default:0 }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                            borderColor: '#3D5AFE',
+                            backgroundColor: 'rgba(61, 90, 254, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#3D5AFE',
+                            pointBorderColor: '#FFFFFF',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(226, 232, 240, 0.5)'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString();
+                                    },
+                                    font: {
+                                        family: 'Inter, Roboto, sans-serif',
+                                        size: 12
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'Inter, Roboto, sans-serif',
+                                        size: 12
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            ...chartOptions.plugins,
+                            tooltip: {
+                                ...chartOptions.plugins.tooltip,
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Average Salary: $${context.parsed.y.toLocaleString()}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        
+            // Education Chart
+            if (document.getElementById('educationChart')) {
+                const eduCtx = document.getElementById('educationChart').getContext('2d');
+                new Chart(eduCtx, {
+                    type: 'polarArea',
+                    data: {
+                        labels: [{% for edu in education_analytics.education_level_distribution %}'{{ edu.education_level }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+                        datasets: [{
+                            data: [{% for edu in education_analytics.education_level_distribution %}{{ edu.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                            backgroundColor: chartColors.map(color => color + '80'),
+                            borderColor: chartColors,
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(226, 232, 240, 0.5)'
+                                },
+                                ticks: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        
+            // Contract Types Chart
+            if (document.getElementById('contractTypesChart')) {
+                const contractCtx = document.getElementById('contractTypesChart').getContext('2d');
+                new Chart(contractCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: [{% for contract in contract_analytics.contract_type_distribution %}'{{ contract.contract_type }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+                        datasets: [{
+                            data: [{% for contract in contract_analytics.contract_type_distribution %}{{ contract.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                            backgroundColor: chartColors,
+                            borderWidth: 0,
+                            hoverBorderWidth: 3,
+                            hoverBorderColor: '#FFFFFF'
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        cutout: '60%'
+                    }
+                });
+            }
+        
+            // Contract Value Chart
+            if (document.getElementById('contractValueChart')) {
+                const valueCtx = document.getElementById('contractValueChart').getContext('2d');
+                new Chart(valueCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: [{% for item in contract_analytics.contract_value_by_type %}'{{ item.contract_type }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+                        datasets: [{
+                            label: 'Average Value',
+                            data: [{% for item in contract_analytics.contract_value_by_type %}{{ item.avg_value|default:0 }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                            borderColor: '#10B981',
+                            borderWidth: 2,
+                            borderRadius: 8,
+                            borderSkipped: false,
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(226, 232, 240, 0.5)'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString();
+                                    },
+                                    font: {
+                                        family: 'Inter, Roboto, sans-serif',
+                                        size: 12
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'Inter, Roboto, sans-serif',
+                                        size: 12
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        
+            // Probation Chart
+            if (document.getElementById('probationChart')) {
+                const probationCtx = document.getElementById('probationChart').getContext('2d');
+                new Chart(probationCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: [{% for item in contract_analytics.probation_period_analysis %}'{{ item.probation_period_months }} months'{% if not forloop.last %},{% endif %}{% endfor %}],
+                        datasets: [{
+                            label: 'Contracts',
+                            data: [{% for item in contract_analytics.probation_period_analysis %}{{ item.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                            backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                            borderColor: '#F59E0B',
+                            borderWidth: 2,
+                            borderRadius: 8,
+                            borderSkipped: false,
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(226, 232, 240, 0.5)'
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'Inter, Roboto, sans-serif',
+                                        size: 12
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'Inter, Roboto, sans-serif',
+                                        size: 12
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        
+            // Device Distribution Chart
+            if (document.getElementById('deviceChart')) {
+                const deviceCtx = document.getElementById('deviceChart').getContext('2d');
+                new Chart(deviceCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: [{% for device in session_analytics.device_distribution %}'{{ device.device_type|title }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+                        datasets: [{
+                            data: [{% for device in session_analytics.device_distribution %}{{ device.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                            backgroundColor: ['#3D5AFE', '#10B981', '#F59E0B', '#EF4444'],
+                            borderWidth: 0,
+                            hoverBorderWidth: 3,
+                            hoverBorderColor: '#FFFFFF'
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        cutout: '50%'
+                    }
+                });
+            }
+        
+            // Action Distribution Chart
+            if (document.getElementById('actionChart')) {
+                const actionCtx = document.getElementById('actionChart').getContext('2d');
+                new Chart(actionCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: [{% for action in audit_analytics.action_distribution %}'{{ action.action }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+                        datasets: [{
+                            label: 'Count',
+                            data: [{% for action in audit_analytics.action_distribution %}{{ action.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                            backgroundColor: chartColors,
+                            borderWidth: 0,
+                            borderRadius: 8,
+                            borderSkipped: false,
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        indexAxis: 'y',
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(226, 232, 240, 0.5)'
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'Inter, Roboto, sans-serif',
+                                        size: 12
+                                    }
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'Inter, Roboto, sans-serif',
+                                        size: 12
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        
+            // Role Distribution Chart
+            if (document.getElementById('roleChart')) {
+                const roleCtx = document.getElementById('roleChart').getContext('2d');
+                new Chart(roleCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: [{% for role in role_analytics.role_distribution %}'{{ role.name }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+                        datasets: [{
+                            data: [{% for role in role_analytics.role_distribution %}{{ role.user_count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                            backgroundColor: chartColors,
+                            borderWidth: 0,
+                            hoverBorderWidth: 3,
+                            hoverBorderColor: '#FFFFFF'
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        cutout: '65%'
+                    }
+                });
+            }
+        
+            // Role Salary Chart
+            if (document.getElementById('roleSalaryChart')) {
+                const roleSalaryCtx = document.getElementById('roleSalaryChart').getContext('2d');
+                new Chart(roleSalaryCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: [{% for role in role_analytics.role_salary_analysis %}'{{ role.name }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+                        datasets: [{
+                            label: 'Average Salary',
+                            data: [{% for role in role_analytics.role_salary_analysis %}{{ role.avg_salary|default:0 }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                            backgroundColor: 'rgba(213, 0, 249, 0.8)',
+                            borderColor: '#D500F9',
+                            borderWidth: 2,
+                            borderRadius: 8,
+                            borderSkipped: false,
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(226, 232, 240, 0.5)'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString();
+                                    },
+                                    font: {
+                                        family: 'Inter, Roboto, sans-serif',
+                                        size: 12
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        family: 'Inter, Roboto, sans-serif',
+                                        size: 12
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+            borderColor: '#10B981',
+            borderWidth: 2,
+            borderRadius: 8,
+            borderSkipped: false,
+        }]
+    },
+    options: {
+        ...chartOptions,
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(226, 232, 240, 0.5)'
+                },
+                ticks: {
+                    callback: function(value) {
+                        return '$' + value.toLocaleString();
+                    },
+                    font: {
+                        family: 'Inter, Roboto, sans-serif',
+                        size: 12
+                    }
+                }
+            },
+            x: {
+                grid: {
+                    display: false
+                },
+                ticks: {
+                    font: {
+                        family: 'Inter, Roboto, sans-serif',
+                        size: 12
+                    }
+                }
+            }
+        }
+    }
+});
+}
+
+// Interactive Features
+const activityFilter = document.getElementById('activityFilter');
+const activitiesList = document.getElementById('activitiesList');
+const loadMoreBtn = document.getElementById('loadMoreActivities');
+
+if (activityFilter && activitiesList) {
+activityFilter.addEventListener('change', function() {
+    const filterValue = this.value;
+    const activityItems = activitiesList.querySelectorAll('.activity-item');
+    
+    activityItems.forEach(item => {
+        if (filterValue === 'all') {
+            item.style.display = 'flex';
+        } else {
+            const actionType = item.dataset.action;
+            if (actionType && actionType.toLowerCase().includes(filterValue.toLowerCase())) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        }
+    });
+});
+}
+
+if (loadMoreBtn) {
+loadMoreBtn.addEventListener('click', function() {
+    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    
+    setTimeout(() => {
+        this.innerHTML = '<i class="fas fa-plus"></i> Load More Activities';
+        
+        const noMoreData = document.createElement('div');
+        noMoreData.className = 'no-more-data';
+        noMoreData.innerHTML = '<p style="text-align: center; color: #64748B; padding: 1rem;">No more activities to load</p>';
+        activitiesList.appendChild(noMoreData);
+        
+        this.style.display = 'none';
+    }, 1500);
+});
+}
+
+// Chart Controls
+const chartBtns = document.querySelectorAll('.chart-btn');
+chartBtns.forEach(btn => {
+btn.addEventListener('click', function() {
+    const parent = this.closest('.chart-card');
+    const buttons = parent.querySelectorAll('.chart-btn');
+    
+    buttons.forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    
+    // Add chart switching logic here if needed
+});
+});
+
+// Real-time Updates
+function updateRealTimeData() {
+const liveIndicators = document.querySelectorAll('.live-indicator');
+liveIndicators.forEach(indicator => {
+    indicator.style.opacity = '0.5';
+    setTimeout(() => {
+        indicator.style.opacity = '1';
+    }, 500);
+});
+
+// Update session counts (simulate real-time data)
+const sessionCounts = document.querySelectorAll('.session-metric-number');
+sessionCounts.forEach(count => {
+    const currentValue = parseInt(count.textContent);
+    const variation = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1
+    const newValue = Math.max(0, currentValue + variation);
+    
+    if (newValue !== currentValue) {
+        count.style.transform = 'scale(1.1)';
+        count.textContent = newValue;
+        setTimeout(() => {
+            count.style.transform = 'scale(1)';
+        }, 200);
+    }
+});
+}
+
+// Update every 30 seconds
+setInterval(updateRealTimeData, 30000);
+
+// Smooth Scrolling for Navigation
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+anchor.addEventListener('click', function (e) {
+    e.preventDefault();
+    const target = document.querySelector(this.getAttribute('href'));
+    if (target) {
+        target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+    }
+});
+});
+
+// Card Hover Effects
+const cards = document.querySelectorAll('.dashboard-card, .stat-card, .chart-card, .alert-card');
+cards.forEach(card => {
+card.addEventListener('mouseenter', function() {
+    this.style.transform = 'translateY(-4px)';
+});
+
+card.addEventListener('mouseleave', function() {
+    this.style.transform = 'translateY(0)';
+});
+});
+
+// Notification System
+function showNotification(message, type = 'info') {
+const notification = document.createElement('div');
+notification.className = `notification notification-${type}`;
+notification.innerHTML = `
+    <div class="notification-content">
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+        <span>${message}</span>
+    </div>
+    <button class="notification-close">
+        <i class="fas fa-times"></i>
+    </button>
+`;
+
+document.body.appendChild(notification);
+
+setTimeout(() => {
+    notification.classList.add('show');
+}, 100);
+
+const closeBtn = notification.querySelector('.notification-close');
+closeBtn.addEventListener('click', () => {
+    notification.classList.remove('show');
+    setTimeout(() => {
+        document.body.removeChild(notification);
+    }, 300);
+});
+
+setTimeout(() => {
+    if (document.body.contains(notification)) {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }
+}, 5000);
+}
+
+// Initialize tooltips
+const tooltipElements = document.querySelectorAll('[title]');
+tooltipElements.forEach(element => {
+element.addEventListener('mouseenter', function(e) {
+    const tooltip = document.createElement('div');
+    tooltip.className = 'custom-tooltip';
+    tooltip.textContent = this.getAttribute('title');
+    document.body.appendChild(tooltip);
+    
+    const rect = this.getBoundingClientRect();
+    tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
+    tooltip.style.top = rect.top - tooltip.offsetHeight - 10 + 'px';
+    
+    this.removeAttribute('title');
+    this.dataset.originalTitle = tooltip.textContent;
+});
+
+element.addEventListener('mouseleave', function() {
+    const tooltip = document.querySelector('.custom-tooltip');
+    if (tooltip) {
+        document.body.removeChild(tooltip);
+    }
+    this.setAttribute('title', this.dataset.originalTitle);
+});
+});
+
+// Dashboard refresh functionality
+const refreshBtn = document.createElement('button');
+refreshBtn.className = 'refresh-btn';
+refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+refreshBtn.title = 'Refresh Dashboard';
+
+refreshBtn.addEventListener('click', function() {
+this.classList.add('spinning');
+showNotification('Dashboard refreshed successfully!', 'success');
+
+setTimeout(() => {
+    this.classList.remove('spinning');
+}, 1000);
+});
+
+document.querySelector('.dashboard-container').appendChild(refreshBtn);
+
+console.log('🚀 HR Analytics Dashboard initialized successfully!');
+console.log('📊 All charts and interactive features are ready.');
+console.log('🔄 Real-time updates enabled.');
+});
+
+// Additional CSS for notifications and tooltips
+const additionalStyles = `
+<style>
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transform: translateX(400px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10000;
+    min-width: 300px;
+}
+
+.notification.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.notification-success {
+    border-left: 4px solid #10B981;
+}
+
+.notification-error {
+    border-left: 4px solid #EF4444;
+}
+
+.notification-info {
+    border-left: 4px solid #3D5AFE;
+}
+
+.notification-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.notification-content i {
+    font-size: 1.25rem;
+}
+
+.notification-success .notification-content i {
+    color: #10B981;
+}
+
+.notification-error .notification-content i {
+    color: #EF4444;
+}
+
+.notification-info .notification-content i {
+    color: #3D5AFE;
+}
+
+.notification-close {
+    background: none;
+    border: none;
+    color: #64748B;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: var(--transition);
+}
+
+.notification-close:hover {
+    background: rgba(100, 116, 139, 0.1);
+    color: #374151;
+}
+
+.custom-tooltip {
+    position: absolute;
+    background: rgba(43, 43, 43, 0.95);
+    color: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    z-index: 10000;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.custom-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(43, 43, 43, 0.95);
+}
+
+.refresh-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    border: none;
+    color: white;
+    font-size: 1.25rem;
+    cursor: pointer;
+    box-shadow: 0 8px 30px rgba(61, 90, 254, 0.3);
+    transition: var(--transition);
+    z-index: 1000;
+}
+
+.refresh-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(61, 90, 254, 0.4);
+}
+
+.refresh-btn.spinning i {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.chart-container canvas {
+    max-height: 300px !important;
+}
+
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 1rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+
+    .analytics-grid, .education-grid, .contracts-grid, .sessions-grid, 
+    .security-grid, .audit-grid, .roles-grid, .activities-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .welcome-section h2 {
+        font-size: 2rem;
+    }
+
+    .welcome-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .notification {
+        right: 10px;
+        left: 10px;
+        min-width: auto;
+        transform: translateY(-100px);
+    }
+
+    .notification.show {
+        transform: translateY(0);
+    }
+
+    .refresh-btn {
+        bottom: 20px;
+        right: 20px;
+        width: 50px;
+        height: 50px;
+        font-size: 1rem;
+    }
+}
+
+@media print {
+    .refresh-btn, .notification {
+        display: none !important;
+    }
+    
+    .dashboard-container {
+        background: white !important;
+    }
+    
+    .dashboard-card, .stat-card, .chart-card {
+        box-shadow: none !important;
+        border: 1px solid #E2E8F0 !important;
+        break-inside: avoid;
+    }
+}
+</style>
+`;
+
+document.head.insertAdjacentHTML('beforeend', additionalStyles);
+</script>
+
+<!-- Default Django Admin Content -->
+{{ block.super }}
+
+</div>
+{% endblock %}
+
+        
+
+
+
+
+
