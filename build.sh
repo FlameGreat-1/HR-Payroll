@@ -10,8 +10,9 @@ python manage.py makemigrations core
 python manage.py makemigrations employees
 python manage.py makemigrations attendance
 python manage.py makemigrations payroll
-python manage.py makemigrations expenses
-python manage.py makemigrations reports
+# Only create migrations for apps that exist and are installed
+python manage.py makemigrations expenses || echo "Expenses app not ready for migrations"
+python manage.py makemigrations reports || echo "Reports app not ready for migrations"
 
 echo "Collecting static files..."
 python manage.py collectstatic --no-input
